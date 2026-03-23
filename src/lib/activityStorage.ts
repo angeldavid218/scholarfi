@@ -6,6 +6,8 @@ export type ActivityEntry = {
   at: string
   kind: 'task' | 'redeem' | 'transfer' | 'info'
   message: string
+  /** Solana transaction signature for Explorer link */
+  signature?: string
 }
 
 function readRaw(): ActivityEntry[] {

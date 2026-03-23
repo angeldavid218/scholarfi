@@ -1,5 +1,6 @@
 import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
+  TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
   createAssociatedTokenAccountIdempotentInstructionWithDerivation,
   createTransferInstruction,
@@ -23,6 +24,12 @@ export function parseRewardMint(): PublicKey | null {
   }
 }
 
+/** Optional display name in the UI (e.g. `SCHOL`). */
+export function rewardTokenSymbol(): string {
+  const s = import.meta.env.VITE_REWARD_TOKEN_SYMBOL
+  return typeof s === 'string' && s.trim() ? s.trim() : 'Reward'
+}
+
 export function parseTreasuryPubkey(): PublicKey | null {
   const raw = import.meta.env.VITE_TREASURY_PUBKEY
   if (!raw || typeof raw !== 'string') return null
@@ -33,12 +40,39 @@ export function parseTreasuryPubkey(): PublicKey | null {
   }
 }
 
+export async function fetchMintInfo(
+  connection: Connection,
+  mint: PublicKey,
+): Promise<{ decimals: number; supply: bigint; tokenProgramId: PublicKey }> {
+  const acc = await connection.getAccountInfo(mint, 'confirmed')
+  if (!acc) {
+    throw new Error(
+      'Mint account not found on this cluster. Check VITE_REWARD_MINT and that Phantom uses Devnet.',
+    )
+  }
+  let tokenProgramId: PublicKey
+  if (acc.owner.equals(TOKEN_PROGRAM_ID)) {
+    tokenProgramId = TOKEN_PROGRAM_ID
+  } else if (acc.owner.equals(TOKEN_2022_PROGRAM_ID)) {
+    tokenProgramId = TOKEN_2022_PROGRAM_ID
+  } else {
+    throw new Error('VITE_REWARD_MINT is not an SPL token mint.')
+  }
+  const mintInfo = await getMint(connection, mint, 'confirmed', tokenProgramId)
+  return {
+    decimals: mintInfo.decimals,
+    supply: mintInfo.supply,
+    tokenProgramId,
+  }
+}
+
+/** @deprecated Prefer fetchMintInfo for program id */
 export async function fetchMintDecimals(
   connection: Connection,
   mint: PublicKey,
 ): Promise<number> {
-  const mintInfo = await getMint(connection, mint)
-  return mintInfo.decimals
+  const { decimals } = await fetchMintInfo(connection, mint)
+  return decimals
 }
 
 /** Raw token amount (smallest units), or 0n if no ATA. */
@@ -46,16 +80,17 @@ export async function fetchTokenBalanceRaw(
   connection: Connection,
   owner: PublicKey,
   mint: PublicKey,
+  tokenProgramId: PublicKey,
 ): Promise<bigint> {
   const ata = getAssociatedTokenAddressSync(
     mint,
     owner,
     false,
-    TOKEN_PROGRAM_ID,
+    tokenProgramId,
     ASSOCIATED_TOKEN_PROGRAM_ID,
   )
   try {
-    const acc = await getAccount(connection, ata)
+    const acc = await getAccount(connection, ata, 'confirmed', tokenProgramId)
     return acc.amount
   } catch {
     return 0n
@@ -84,24 +119,25 @@ export function rawToUi(amount: bigint, decimals: number): string {
 export async function buildRedeemTransaction(params: {
   connection: Connection
   mint: PublicKey
+  tokenProgramId: PublicKey
   user: PublicKey
   treasury: PublicKey
   amountRaw: bigint
 }): Promise<Transaction> {
-  const { connection, mint, user, treasury, amountRaw } = params
+  const { connection, mint, tokenProgramId, user, treasury, amountRaw } = params
 
   const userAta = getAssociatedTokenAddressSync(
     mint,
     user,
     false,
-    TOKEN_PROGRAM_ID,
+    tokenProgramId,
     ASSOCIATED_TOKEN_PROGRAM_ID,
   )
   const treasuryAta = getAssociatedTokenAddressSync(
     mint,
     treasury,
     false,
-    TOKEN_PROGRAM_ID,
+    tokenProgramId,
     ASSOCIATED_TOKEN_PROGRAM_ID,
   )
 
@@ -109,7 +145,7 @@ export async function buildRedeemTransaction(params: {
 
   let treasuryAtaExists = true
   try {
-    await getAccount(connection, treasuryAta)
+    await getAccount(connection, treasuryAta, 'confirmed', tokenProgramId)
   } catch {
     treasuryAtaExists = false
   }
@@ -121,7 +157,7 @@ export async function buildRedeemTransaction(params: {
         treasury,
         mint,
         false,
-        TOKEN_PROGRAM_ID,
+        tokenProgramId,
         ASSOCIATED_TOKEN_PROGRAM_ID,
       ),
     )
@@ -134,7 +170,7 @@ export async function buildRedeemTransaction(params: {
       user,
       amountRaw,
       [],
-      TOKEN_PROGRAM_ID,
+      tokenProgramId,
     ),
   )
 
@@ -154,24 +190,25 @@ export async function buildRedeemTransaction(params: {
 export async function buildTeacherSendTransaction(params: {
   connection: Connection
   mint: PublicKey
+  tokenProgramId: PublicKey
   teacher: PublicKey
   student: PublicKey
   amountRaw: bigint
 }): Promise<Transaction> {
-  const { connection, mint, teacher, student, amountRaw } = params
+  const { connection, mint, tokenProgramId, teacher, student, amountRaw } = params
 
   const source = getAssociatedTokenAddressSync(
     mint,
     teacher,
     false,
-    TOKEN_PROGRAM_ID,
+    tokenProgramId,
     ASSOCIATED_TOKEN_PROGRAM_ID,
   )
   const dest = getAssociatedTokenAddressSync(
     mint,
     student,
     false,
-    TOKEN_PROGRAM_ID,
+    tokenProgramId,
     ASSOCIATED_TOKEN_PROGRAM_ID,
   )
 
@@ -179,7 +216,7 @@ export async function buildTeacherSendTransaction(params: {
 
   let destExists = true
   try {
-    await getAccount(connection, dest)
+    await getAccount(connection, dest, 'confirmed', tokenProgramId)
   } catch {
     destExists = false
   }
@@ -191,7 +228,7 @@ export async function buildTeacherSendTransaction(params: {
         student,
         mint,
         false,
-        TOKEN_PROGRAM_ID,
+        tokenProgramId,
         ASSOCIATED_TOKEN_PROGRAM_ID,
       ),
     )
@@ -204,7 +241,7 @@ export async function buildTeacherSendTransaction(params: {
       teacher,
       amountRaw,
       [],
-      TOKEN_PROGRAM_ID,
+      tokenProgramId,
     ),
   )
 
