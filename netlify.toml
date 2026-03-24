@@ -1,0 +1,6 @@
+# Netlify must install with Bun when using bun.lock. If package-lock.json is
+# present, Netlify prefers npm; npm can omit Rolldown's Linux native optional
+# deps (@rolldown/binding-linux-x64-gnu), breaking vite build on Linux CI.
+[build]
+  command = "bun run build"
+  publish = "dist"
