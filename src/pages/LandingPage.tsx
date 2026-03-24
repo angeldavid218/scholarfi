@@ -13,6 +13,14 @@ export function LandingPage() {
       >
         <div className="hero-content px-4 text-center">
           <div className="max-w-2xl">
+            <img
+              src="/sholarfi.png"
+              alt=""
+              width={160}
+              height={160}
+              className="mx-auto mb-6 h-28 w-28 object-contain md:h-36 md:w-36"
+              decoding="async"
+            />
             <h1
               id="hero-heading"
               className="text-4xl font-bold tracking-tight md:text-6xl"

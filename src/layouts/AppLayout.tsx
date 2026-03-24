@@ -48,8 +48,19 @@ export function AppLayout() {
       <RoleRouteSync />
       <header className="navbar sticky top-0 z-50 border-b border-base-content/10 bg-base-100/80 backdrop-blur-md">
         <div className="navbar-start gap-1">
-          <Link to="/" className="btn btn-ghost text-xl font-bold normal-case">
-            Scholarfi
+          <Link
+            to="/"
+            className="btn btn-ghost gap-2 px-2 text-xl font-bold normal-case"
+          >
+            <img
+              src="/sholarfi.png"
+              alt=""
+              width={36}
+              height={36}
+              className="h-9 w-9 shrink-0 object-contain"
+              decoding="async"
+            />
+            <span>Scholarfi</span>
           </Link>
           <div className="hidden items-center gap-1 md:flex">
             <NavLink to="/student" className={linkClass}>
