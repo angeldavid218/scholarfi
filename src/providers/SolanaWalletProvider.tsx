@@ -8,7 +8,12 @@ import {
 } from '@solana/wallet-adapter-wallets'
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 
-const endpoint = clusterApiUrl('devnet')
+/** Prefer a dedicated devnet RPC (e.g. Helius) via env; public RPC can rate-limit or drop WS. */
+const endpoint =
+  typeof import.meta.env.VITE_SOLANA_RPC_URL === 'string' &&
+  import.meta.env.VITE_SOLANA_RPC_URL.trim().length > 0
+    ? import.meta.env.VITE_SOLANA_RPC_URL.trim()
+    : clusterApiUrl('devnet')
 
 export function SolanaWalletProvider({ children }: { children: ReactNode }) {
   const [walletError, setWalletError] = useState<string | null>(null)

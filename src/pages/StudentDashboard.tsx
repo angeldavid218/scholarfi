@@ -15,6 +15,7 @@ import {
   listMyCompletedTaskIds,
   listTasksForInstitution,
 } from '../lib/db.ts'
+import { confirmSignatureWithPolling } from '../lib/confirmSignature.ts'
 import { explorerAddress, explorerTx } from '../lib/solanaExplorer.ts'
 import {
   buildRedeemTransaction,
@@ -28,6 +29,40 @@ import {
 import { useRewardToken } from '../hooks/useRewardToken.ts'
 import type { TaskRow } from '../types/db.ts'
 import { truncateAddress } from '../utils/truncateAddress.ts'
+
+type MarketplacePlaceholder = {
+  id: string
+  title: string
+  description: string
+  costTokens: number
+}
+
+const MARKETPLACE_PLACEHOLDERS: MarketplacePlaceholder[] = [
+  {
+    id: 'movie',
+    title: 'Movie theater pass',
+    description: 'Digital voucher for a standard admission at participating theaters.',
+    costTokens: 40,
+  },
+  {
+    id: 'book',
+    title: 'Book voucher',
+    description: 'Credit toward textbooks or general reading at partner bookstores.',
+    costTokens: 25,
+  },
+  {
+    id: 'course',
+    title: 'Online course credit',
+    description: 'Apply toward short courses or skill modules from catalog partners.',
+    costTokens: 60,
+  },
+  {
+    id: 'supplies',
+    title: 'School supplies bundle',
+    description: 'Notebook, pens, and basics shipped to your address.',
+    costTokens: 15,
+  },
+]
 
 export function StudentDashboard() {
   const { connection } = useConnection()
@@ -71,6 +106,14 @@ export function StudentDashboard() {
 
   useEffect(() => {
     void refreshBalance()
+  }, [refreshBalance])
+
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === 'visible') void refreshBalance()
+    }
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
   }, [refreshBalance])
 
   const refreshTasks = useCallback(async () => {
@@ -142,15 +185,17 @@ export function StudentDashboard() {
       return
     }
     if (!mint) {
-      setErr('Set VITE_REWARD_MINT in your environment to use SPL redeem.')
+      setErr('Reward token is not configured — redeem is unavailable for this build.')
       return
     }
     if (!treasury) {
-      setErr('Set VITE_TREASURY_PUBKEY (treasury wallet) for redemption transfers.')
+      setErr('Treasury wallet is not configured — redemption transfers are unavailable.')
       return
     }
     if (token.status !== 'ready') {
-      setErr('Reward mint is not loaded yet or failed validation.')
+      setErr(
+        'Reward token is not loading correctly. Check your connection and app configuration.',
+      )
       return
     }
     const raw = uiToRaw(Number(redeemUi), token.decimals)
@@ -173,15 +218,11 @@ export function StudentDashboard() {
         treasury,
         amountRaw: raw,
       })
-      const sig = await sendTransaction(tx, connection)
-      await connection.confirmTransaction(
-        {
-          signature: sig,
-          blockhash: tx.recentBlockhash!,
-          lastValidBlockHeight: tx.lastValidBlockHeight!,
-        },
-        'confirmed',
-      )
+      const sig = await sendTransaction(tx, connection, {
+        preflightCommitment: 'confirmed',
+        maxRetries: 5,
+      })
+      await confirmSignatureWithPolling(connection, sig, { commitment: 'confirmed' })
       const list = appendActivity({
         kind: 'redeem',
         message: `Redeemed ~${redeemUi} ${symbol} to treasury.`,
@@ -220,14 +261,34 @@ export function StudentDashboard() {
     mint &&
     treasury &&
     token.status === 'ready'
+  const connectedWallet = publicKey?.toBase58() ?? null
+  const profileWalletPending = Boolean(
+    session && profile?.wallet_address?.startsWith('pending:'),
+  )
+  const profileWalletMismatch = Boolean(
+    session &&
+      profile?.wallet_address &&
+      connectedWallet &&
+      !profile.wallet_address.startsWith('pending:') &&
+      profile.wallet_address !== connectedWallet,
+  )
 
   return (
     <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-10">
       <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight">Student dashboard</h1>
         <p className="mt-2 text-base-content/80">
-          Wallet identity, tasks, SPL balance, redemption, and local activity history.
+          Complete homework and tasks to earn tokens, then spend them in the rewards marketplace (coming
+          soon). Wallet, balance, treasury tools, and local activity history below.
         </p>
+        {session && (
+          <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-base-200 px-3 py-1 text-xs">
+            <span className="font-semibold">Institution:</span>
+            <span className={profile?.institution_id ? undefined : 'text-warning'}>
+              {profile?.institution_id ? 'Linked to an institution' : 'Not linked yet'}
+            </span>
+          </div>
+        )}
       </div>
 
       {configReady && (
@@ -263,11 +324,23 @@ export function StudentDashboard() {
         </div>
       )}
 
+      {(profileWalletPending || profileWalletMismatch) && (
+        <div className="alert alert-warning mb-6" role="status">
+          <span>
+            Your auth profile wallet is not linked to this connected wallet yet. Connect the intended
+            wallet and send a new magic link so ScholarFi can link your profile automatically.
+          </span>
+        </div>
+      )}
+
       {!session && (
         <div className="alert alert-info mb-6">
           <div className="w-full">
             <h3 className="mb-1 font-semibold">Sign in to load and complete tasks</h3>
-            <SupabaseMagicLink />
+            <SupabaseMagicLink
+              walletAddress={publicKey?.toBase58() ?? null}
+              roleHint="student"
+            />
           </div>
         </div>
       )}
@@ -298,7 +371,7 @@ export function StudentDashboard() {
 
         <section className="card bg-base-100 shadow-xl">
           <div className="card-body">
-            <h2 className="card-title">Reward mint</h2>
+            <h2 className="card-title">Reward token</h2>
             {mint ? (
               <a
                 href={explorerAddress(mint.toBase58())}
@@ -310,7 +383,7 @@ export function StudentDashboard() {
               </a>
             ) : (
               <p className="text-sm text-warning">
-                Set <code className="text-xs">VITE_REWARD_MINT</code> for live reads.
+                Reward token not configured — balances will show once it is set in the app environment.
               </p>
             )}
             {token.status === 'ready' && (
@@ -326,17 +399,19 @@ export function StudentDashboard() {
           <div className="card-body gap-4">
             <h2 className="card-title">Tasks from your teacher</h2>
             <p className="text-sm text-base-content/80">
-              Completing a task creates an <code className="text-xs">academic_actions</code> row (
+              Finish assignments and homework your teacher posts here to earn {symbol}. Those tokens
+              will be what you use in the rewards marketplace for real-world perks (movie passes, books,
+              courses, and more). Under the hood, completing a task creates an{' '}
+              <code className="text-xs">academic_actions</code> row (
               <code className="text-xs">assignment_completed</code>) and a{' '}
-              <code className="text-xs">user_rewards</code> row. Your teacher sends {symbol} from
-              the treasury when the payout shows as pending.
+              <code className="text-xs">user_rewards</code> row; your teacher sends {symbol} from the
+              treasury when the payout shows as pending.
             </p>
             {profileLoading || tasksLoading ? (
               <p className="text-sm text-base-content/60">Loading tasks…</p>
             ) : !profile?.institution_id ? (
               <p className="text-sm text-warning">
-                Your profile needs an <code className="text-xs">institution_id</code> that matches
-                your teacher&apos;s tasks.
+                Your profile must be linked to the same school as your teacher so tasks appear here.
               </p>
             ) : !session ? (
               <p className="text-sm text-base-content/60">Sign in with Supabase to see tasks.</p>
@@ -390,6 +465,43 @@ export function StudentDashboard() {
           </div>
         </section>
 
+        <section className="card bg-base-100 shadow-xl md:col-span-2">
+          <div className="card-body gap-4">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+              <h2 className="card-title">Rewards marketplace</h2>
+              <span className="badge badge-neutral whitespace-nowrap">Coming soon</span>
+            </div>
+            <p className="text-sm text-base-content/80">
+              You earn tokens by completing homework and tasks from your teacher. This is where you will
+              redeem those tokens for real-world rewards—things like movie tickets, books, online
+              courses, and school supplies. Fulfillment and checkout are not wired up yet; the offers
+              below are placeholders to show what ScholarFi is building toward.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {MARKETPLACE_PLACEHOLDERS.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex flex-col gap-3 rounded-box border border-base-content/10 bg-base-200 p-4"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="font-semibold leading-tight">{item.title}</h3>
+                    <span className="badge badge-ghost badge-sm shrink-0">Coming soon</span>
+                  </div>
+                  <p className="text-sm text-base-content/70">{item.description}</p>
+                  <p className="text-sm font-medium tabular-nums">
+                    {item.costTokens} {symbol}
+                  </p>
+                  <div className="card-actions mt-auto justify-end">
+                    <button type="button" className="btn btn-primary btn-sm" disabled>
+                      Redeem
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
         <section className="card bg-base-100 shadow-xl">
           <div className="card-body">
             <h2 className="card-title">Token balance</h2>
@@ -422,13 +534,13 @@ export function StudentDashboard() {
 
         <section className="card bg-base-100 shadow-xl">
           <div className="card-body">
-            <h2 className="card-title">Redeem</h2>
+            <h2 className="card-title">Send to treasury (dev test)</h2>
             <p className="text-sm text-base-content/80">
-              Spend {symbol} by transferring to the program treasury (on-chain). Requires{' '}
-              <code className="text-xs">VITE_TREASURY_PUBKEY</code>.
+              For testing only: move {symbol} from your wallet to the program treasury on-chain (not the
+              rewards shop). Needs a treasury address configured for this app.
             </p>
             <label className="form-control w-full max-w-xs">
-              <span className="label-text">Amount (UI)</span>
+              <span className="label-text">Amount</span>
               <input
                 type="number"
                 min="0"

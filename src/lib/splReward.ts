@@ -2,6 +2,7 @@ import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
+  createApproveInstruction,
   createAssociatedTokenAccountIdempotentInstructionWithDerivation,
   createTransferInstruction,
   getAccount,
@@ -47,7 +48,7 @@ export async function fetchMintInfo(
   const acc = await connection.getAccountInfo(mint, 'confirmed')
   if (!acc) {
     throw new Error(
-      'Mint account not found on this cluster. Check VITE_REWARD_MINT and that Phantom uses Devnet.',
+      'Reward mint not found on this network. Check the configured mint address and that your wallet is on devnet.',
     )
   }
   let tokenProgramId: PublicKey
@@ -56,7 +57,7 @@ export async function fetchMintInfo(
   } else if (acc.owner.equals(TOKEN_2022_PROGRAM_ID)) {
     tokenProgramId = TOKEN_2022_PROGRAM_ID
   } else {
-    throw new Error('VITE_REWARD_MINT is not an SPL token mint.')
+    throw new Error('The configured reward address is not a valid SPL token mint.')
   }
   const mintInfo = await getMint(connection, mint, 'confirmed', tokenProgramId)
   return {
@@ -94,6 +95,34 @@ export async function fetchTokenBalanceRaw(
     return acc.amount
   } catch {
     return 0n
+  }
+}
+
+export async function fetchTokenDelegateInfo(params: {
+  connection: Connection
+  mint: PublicKey
+  owner: PublicKey
+  tokenProgramId: PublicKey
+}): Promise<{ delegate: PublicKey | null; delegatedAmountRaw: bigint }> {
+  const { connection, mint, owner, tokenProgramId } = params
+  const ata = getAssociatedTokenAddressSync(
+    mint,
+    owner,
+    false,
+    tokenProgramId,
+    ASSOCIATED_TOKEN_PROGRAM_ID,
+  )
+  try {
+    const acc = await getAccount(connection, ata, 'confirmed', tokenProgramId)
+    return {
+      delegate: acc.delegate ?? null,
+      delegatedAmountRaw: acc.delegatedAmount,
+    }
+  } catch {
+    return {
+      delegate: null,
+      delegatedAmountRaw: 0n,
+    }
   }
 }
 
@@ -142,26 +171,16 @@ export async function buildRedeemTransaction(params: {
   )
 
   const tx = new Transaction()
-
-  let treasuryAtaExists = true
-  try {
-    await getAccount(connection, treasuryAta, 'confirmed', tokenProgramId)
-  } catch {
-    treasuryAtaExists = false
-  }
-
-  if (!treasuryAtaExists) {
-    tx.add(
-      createAssociatedTokenAccountIdempotentInstructionWithDerivation(
-        user,
-        treasury,
-        mint,
-        false,
-        tokenProgramId,
-        ASSOCIATED_TOKEN_PROGRAM_ID,
-      ),
-    )
-  }
+  tx.add(
+    createAssociatedTokenAccountIdempotentInstructionWithDerivation(
+      user,
+      treasury,
+      mint,
+      false,
+      tokenProgramId,
+      ASSOCIATED_TOKEN_PROGRAM_ID,
+    ),
+  )
 
   tx.add(
     createTransferInstruction(
@@ -213,26 +232,16 @@ export async function buildTeacherSendTransaction(params: {
   )
 
   const tx = new Transaction()
-
-  let destExists = true
-  try {
-    await getAccount(connection, dest, 'confirmed', tokenProgramId)
-  } catch {
-    destExists = false
-  }
-
-  if (!destExists) {
-    tx.add(
-      createAssociatedTokenAccountIdempotentInstructionWithDerivation(
-        teacher,
-        student,
-        mint,
-        false,
-        tokenProgramId,
-        ASSOCIATED_TOKEN_PROGRAM_ID,
-      ),
-    )
-  }
+  tx.add(
+    createAssociatedTokenAccountIdempotentInstructionWithDerivation(
+      teacher,
+      student,
+      mint,
+      false,
+      tokenProgramId,
+      ASSOCIATED_TOKEN_PROGRAM_ID,
+    ),
+  )
 
   tx.add(
     createTransferInstruction(
@@ -251,6 +260,100 @@ export async function buildTeacherSendTransaction(params: {
   tx.recentBlockhash = blockhash
   tx.lastValidBlockHeight = lastValidBlockHeight
   tx.feePayer = teacher
+
+  return tx
+}
+
+/**
+ * Treasury approves a delegate to transfer up to `amountRaw` from treasury ATA.
+ */
+export async function buildApproveDelegateTransaction(params: {
+  connection: Connection
+  mint: PublicKey
+  tokenProgramId: PublicKey
+  treasury: PublicKey
+  delegate: PublicKey
+  amountRaw: bigint
+}): Promise<Transaction> {
+  const { connection, mint, tokenProgramId, treasury, delegate, amountRaw } = params
+  const source = getAssociatedTokenAddressSync(
+    mint,
+    treasury,
+    false,
+    tokenProgramId,
+    ASSOCIATED_TOKEN_PROGRAM_ID,
+  )
+
+  const tx = new Transaction()
+  tx.add(createApproveInstruction(source, delegate, treasury, amountRaw, [], tokenProgramId))
+
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash(
+    'confirmed',
+  )
+  tx.recentBlockhash = blockhash
+  tx.lastValidBlockHeight = lastValidBlockHeight
+  tx.feePayer = treasury
+
+  return tx
+}
+
+/**
+ * Delegate sends tokens out of treasury ATA to student ATA.
+ */
+export async function buildDelegateSendTransaction(params: {
+  connection: Connection
+  mint: PublicKey
+  tokenProgramId: PublicKey
+  treasury: PublicKey
+  delegate: PublicKey
+  student: PublicKey
+  amountRaw: bigint
+}): Promise<Transaction> {
+  const { connection, mint, tokenProgramId, treasury, delegate, student, amountRaw } = params
+  const source = getAssociatedTokenAddressSync(
+    mint,
+    treasury,
+    false,
+    tokenProgramId,
+    ASSOCIATED_TOKEN_PROGRAM_ID,
+  )
+  const dest = getAssociatedTokenAddressSync(
+    mint,
+    student,
+    false,
+    tokenProgramId,
+    ASSOCIATED_TOKEN_PROGRAM_ID,
+  )
+
+  const tx = new Transaction()
+  tx.add(
+    createAssociatedTokenAccountIdempotentInstructionWithDerivation(
+      delegate,
+      student,
+      mint,
+      false,
+      tokenProgramId,
+      ASSOCIATED_TOKEN_PROGRAM_ID,
+    ),
+  )
+
+  tx.add(
+    createTransferInstruction(
+      source,
+      dest,
+      delegate,
+      amountRaw,
+      [],
+      tokenProgramId,
+    ),
+  )
+
+  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash(
+    'confirmed',
+  )
+  tx.recentBlockhash = blockhash
+  tx.lastValidBlockHeight = lastValidBlockHeight
+  tx.feePayer = delegate
 
   return tx
 }

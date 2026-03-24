@@ -12,6 +12,7 @@ import { useRewardToken } from '../hooks/useRewardToken.ts'
 import { useScholarfiProfile } from '../hooks/useScholarfiProfile.ts'
 import { useSupabaseSession } from '../hooks/useSupabaseSession.ts'
 import {
+  insertRewardWalletTransaction,
   insertTask,
   listPendingTokenRewardsForInstitution,
   listTasksForInstitution,
@@ -19,8 +20,12 @@ import {
   type PendingTokenRewardRow,
 } from '../lib/db.ts'
 import { explorerAddress, explorerTx } from '../lib/solanaExplorer.ts'
+import { confirmSignatureWithPolling } from '../lib/confirmSignature.ts'
 import {
+  buildApproveDelegateTransaction,
+  buildDelegateSendTransaction,
   buildTeacherSendTransaction,
+  fetchTokenDelegateInfo,
   fetchTokenBalanceRaw,
   parseRewardMint,
   parseTreasuryPubkey,
@@ -58,6 +63,11 @@ export function TeacherDashboard() {
   const [newTaskRewardUi, setNewTaskRewardUi] = useState('1')
   const [tasksBusy, setTasksBusy] = useState(false)
   const [sendingRewardId, setSendingRewardId] = useState<string | null>(null)
+  const [delegateAddr, setDelegateAddr] = useState('')
+  const [delegateAllowanceUi, setDelegateAllowanceUi] = useState('1000')
+  const [delegateBusy, setDelegateBusy] = useState(false)
+  const [delegateOnChain, setDelegateOnChain] = useState<PublicKey | null>(null)
+  const [delegateAllowanceRaw, setDelegateAllowanceRaw] = useState<bigint>(0n)
 
   const refreshTreasuryBalance = useCallback(async () => {
     if (!mint || !treasury || token.status !== 'ready') {
@@ -80,6 +90,30 @@ export function TeacherDashboard() {
   useEffect(() => {
     void refreshTreasuryBalance()
   }, [refreshTreasuryBalance])
+
+  const refreshDelegateInfo = useCallback(async () => {
+    if (!mint || !treasury || token.status !== 'ready') {
+      setDelegateOnChain(null)
+      setDelegateAllowanceRaw(0n)
+      return
+    }
+    try {
+      const info = await fetchTokenDelegateInfo({
+        connection,
+        mint,
+        owner: treasury,
+        tokenProgramId: token.tokenProgramId,
+      })
+      setDelegateOnChain(info.delegate)
+      setDelegateAllowanceRaw(info.delegatedAmountRaw)
+    } catch (e) {
+      console.error(e)
+    }
+  }, [connection, mint, token, treasury])
+
+  useEffect(() => {
+    void refreshDelegateInfo()
+  }, [refreshDelegateInfo])
 
   const refreshTasksAndPending = useCallback(async () => {
     const institutionId = profile?.institution_id
@@ -109,7 +143,7 @@ export function TeacherDashboard() {
       return
     }
     if (!profile?.institution_id) {
-      setErr('Your profile needs an institution_id to create tasks.')
+      setErr('Link your profile to a school before creating tasks.')
       return
     }
     if (profile.role !== 'teacher') {
@@ -159,15 +193,15 @@ export function TeacherDashboard() {
     async (reward: PendingTokenRewardRow) => {
       setErr(null)
       if (!connected || !publicKey) {
-        setErr('Connect the treasury wallet first.')
+        setErr('Connect your wallet first.')
         return
       }
-      if (!isTreasuryWallet) {
-        setErr('Connect the wallet that matches VITE_TREASURY_PUBKEY to send rewards.')
+      if (!treasury) {
+        setErr('Treasury wallet is not configured in the app yet.')
         return
       }
       if (!mint || token.status !== 'ready') {
-        setErr('Reward mint is not ready.')
+        setErr('Reward token is not ready yet.')
         return
       }
       let studentPk: PublicKey
@@ -182,46 +216,84 @@ export function TeacherDashboard() {
         setErr('Invalid reward amount on this row.')
         return
       }
-      const teacherBal = await fetchTokenBalanceRaw(
+      const treasuryBal = await fetchTokenBalanceRaw(
         connection,
-        publicKey,
+        treasury,
         mint,
         token.tokenProgramId,
       )
-      if (raw > teacherBal) {
-        setErr('Amount exceeds your treasury token balance.')
+      if (raw > treasuryBal) {
+        setErr('Amount exceeds treasury token balance.')
         return
       }
 
       setSendingRewardId(reward.id)
       try {
-        const tx = await buildTeacherSendTransaction({
-          connection,
-          mint,
-          tokenProgramId: token.tokenProgramId,
-          teacher: publicKey,
-          student: studentPk,
-          amountRaw: raw,
+        const tx = isTreasuryWallet
+          ? await buildTeacherSendTransaction({
+              connection,
+              mint,
+              tokenProgramId: token.tokenProgramId,
+              teacher: treasury,
+              student: studentPk,
+              amountRaw: raw,
+            })
+          : await (async () => {
+              const info = await fetchTokenDelegateInfo({
+                connection,
+                mint,
+                owner: treasury,
+                tokenProgramId: token.tokenProgramId,
+              })
+              if (!info.delegate || !info.delegate.equals(publicKey)) {
+                throw new Error(
+                  'Connected wallet is not the approved treasury delegate. Connect treasury wallet to authorize it.',
+                )
+              }
+              if (raw > info.delegatedAmountRaw) {
+                throw new Error(
+                  `Amount exceeds remaining delegate allowance (${rawToUi(
+                    info.delegatedAmountRaw,
+                    token.decimals,
+                  )} ${symbol}).`,
+                )
+              }
+              return buildDelegateSendTransaction({
+                connection,
+                mint,
+                tokenProgramId: token.tokenProgramId,
+                treasury,
+                delegate: publicKey,
+                student: studentPk,
+                amountRaw: raw,
+              })
+            })()
+        const sig = await sendTransaction(tx, connection, {
+          preflightCommitment: 'confirmed',
+          maxRetries: 5,
         })
-        const sig = await sendTransaction(tx, connection)
-        await connection.confirmTransaction(
-          {
-            signature: sig,
-            blockhash: tx.recentBlockhash!,
-            lastValidBlockHeight: tx.lastValidBlockHeight!,
-          },
-          'confirmed',
-        )
+        await confirmSignatureWithPolling(connection, sig, { commitment: 'confirmed' })
         const { error: patchErr } = await patchUserRewardTxSignature({
           rewardId: reward.id,
           txSignature: sig,
           status: 'minted',
           mintAddress: mint.toBase58(),
         })
-        if (patchErr) {
-          setErr(
-            `Tokens sent but could not update the database: ${patchErr.message}`,
-          )
+        const { error: txLogErr } = await insertRewardWalletTransaction({
+          userRewardId: reward.id,
+          walletAddress: reward.student_wallet_address,
+          transactionType: 'transfer',
+          network: 'devnet',
+          txSignature: sig,
+          tokenMintAddress: mint.toBase58(),
+          amount: reward.token_amount,
+          status: 'confirmed',
+        })
+        if (patchErr || txLogErr) {
+          const details = [patchErr?.message, txLogErr?.message]
+            .filter((m): m is string => typeof m === 'string' && m.length > 0)
+            .join(' | ')
+          setErr(`Tokens sent but database sync is partial: ${details}`)
         }
         const list = appendActivity({
           kind: 'transfer',
@@ -230,6 +302,7 @@ export function TeacherDashboard() {
         })
         setActivity(list)
         await refreshTreasuryBalance()
+        await refreshDelegateInfo()
         await refreshTasksAndPending()
       } catch (e) {
         console.error(e)
@@ -248,25 +321,104 @@ export function TeacherDashboard() {
       refreshTreasuryBalance,
       sendTransaction,
       token,
+      symbol,
+      treasury,
+      refreshDelegateInfo,
     ],
   )
+
+  const handleAuthorizeDelegate = useCallback(async () => {
+    setErr(null)
+    if (!connected || !publicKey) {
+      setErr('Connect treasury wallet first.')
+      return
+    }
+    if (!isTreasuryWallet) {
+      setErr('Only the treasury wallet can approve a delegate.')
+      return
+    }
+    if (!mint || !treasury || token.status !== 'ready') {
+      setErr('Reward token is not ready yet.')
+      return
+    }
+    let delegatePk: PublicKey
+    try {
+      delegatePk = new PublicKey(delegateAddr.trim())
+    } catch {
+      setErr('Enter a valid delegate wallet address.')
+      return
+    }
+    if (delegatePk.equals(treasury)) {
+      setErr('Delegate must be different from treasury.')
+      return
+    }
+    const raw = uiToRaw(Number(delegateAllowanceUi), token.decimals)
+    if (raw <= 0n) {
+      setErr('Enter a positive delegate allowance.')
+      return
+    }
+
+    setDelegateBusy(true)
+    try {
+      const tx = await buildApproveDelegateTransaction({
+        connection,
+        mint,
+        tokenProgramId: token.tokenProgramId,
+        treasury,
+        delegate: delegatePk,
+        amountRaw: raw,
+      })
+      const sig = await sendTransaction(tx, connection, {
+        preflightCommitment: 'confirmed',
+        maxRetries: 5,
+      })
+      await confirmSignatureWithPolling(connection, sig, { commitment: 'confirmed' })
+      const list = appendActivity({
+        kind: 'transfer',
+        message: `Approved delegate ${truncateAddress(delegatePk.toBase58(), 6, 4)} for ~${delegateAllowanceUi} ${symbol}.`,
+        signature: sig,
+      })
+      setActivity(list)
+      await refreshDelegateInfo()
+    } catch (e) {
+      console.error(e)
+      setErr(e instanceof Error ? e.message : 'Delegate approval failed')
+    } finally {
+      setDelegateBusy(false)
+    }
+  }, [
+    connected,
+    publicKey,
+    isTreasuryWallet,
+    mint,
+    treasury,
+    token,
+    delegateAddr,
+    delegateAllowanceUi,
+    connection,
+    sendTransaction,
+    symbol,
+    refreshDelegateInfo,
+  ])
 
   const handleSendReward = useCallback(async () => {
     setErr(null)
     if (!connected || !publicKey) {
-      setErr('Connect the treasury wallet first.')
+      setErr('Connect your wallet first.')
       return
     }
-    if (!isTreasuryWallet) {
-      setErr('Connect the wallet that matches VITE_TREASURY_PUBKEY to send rewards.')
+    if (!treasury) {
+      setErr('Treasury wallet is not configured in the app yet.')
       return
     }
     if (!mint) {
-      setErr('Set VITE_REWARD_MINT.')
+      setErr('Reward token mint is not configured in the app yet.')
       return
     }
     if (token.status !== 'ready') {
-      setErr('Reward mint is not loaded yet or failed validation.')
+      setErr(
+        'Reward token is not loading correctly. Check your connection and app configuration.',
+      )
       return
     }
     let studentPk: PublicKey
@@ -286,36 +438,63 @@ export function TeacherDashboard() {
       setErr('Enter a positive amount.')
       return
     }
-    const teacherBal = await fetchTokenBalanceRaw(
+    const treasuryBal = await fetchTokenBalanceRaw(
       connection,
-      publicKey,
+      treasury,
       mint,
       token.tokenProgramId,
     )
-    if (raw > teacherBal) {
-      setErr('Amount exceeds your treasury token balance.')
+    if (raw > treasuryBal) {
+      setErr('Amount exceeds treasury token balance.')
       return
     }
 
     setBusy(true)
     try {
-      const tx = await buildTeacherSendTransaction({
-        connection,
-        mint,
-        tokenProgramId: token.tokenProgramId,
-        teacher: publicKey,
-        student: studentPk,
-        amountRaw: raw,
+      const tx = isTreasuryWallet
+        ? await buildTeacherSendTransaction({
+            connection,
+            mint,
+            tokenProgramId: token.tokenProgramId,
+            teacher: treasury,
+            student: studentPk,
+            amountRaw: raw,
+          })
+        : await (async () => {
+            const info = await fetchTokenDelegateInfo({
+              connection,
+              mint,
+              owner: treasury,
+              tokenProgramId: token.tokenProgramId,
+            })
+            if (!info.delegate || !info.delegate.equals(publicKey)) {
+              throw new Error(
+                'Connected wallet is not the approved treasury delegate. Connect treasury wallet to authorize it.',
+              )
+            }
+            if (raw > info.delegatedAmountRaw) {
+              throw new Error(
+                `Amount exceeds remaining delegate allowance (${rawToUi(
+                  info.delegatedAmountRaw,
+                  token.decimals,
+                )} ${symbol}).`,
+              )
+            }
+            return buildDelegateSendTransaction({
+              connection,
+              mint,
+              tokenProgramId: token.tokenProgramId,
+              treasury,
+              delegate: publicKey,
+              student: studentPk,
+              amountRaw: raw,
+            })
+          })()
+      const sig = await sendTransaction(tx, connection, {
+        preflightCommitment: 'confirmed',
+        maxRetries: 5,
       })
-      const sig = await sendTransaction(tx, connection)
-      await connection.confirmTransaction(
-        {
-          signature: sig,
-          blockhash: tx.recentBlockhash!,
-          lastValidBlockHeight: tx.lastValidBlockHeight!,
-        },
-        'confirmed',
-      )
+      await confirmSignatureWithPolling(connection, sig, { commitment: 'confirmed' })
       const list = appendActivity({
         kind: 'transfer',
         message: `Sent ~${sendUi} ${symbol} to ${truncateAddress(studentPk.toBase58(), 6, 4)}.`,
@@ -323,6 +502,7 @@ export function TeacherDashboard() {
       })
       setActivity(list)
       await refreshTreasuryBalance()
+      await refreshDelegateInfo()
     } catch (e) {
       console.error(e)
       setErr(e instanceof Error ? e.message : 'Transfer failed')
@@ -335,12 +515,14 @@ export function TeacherDashboard() {
     isTreasuryWallet,
     mint,
     publicKey,
+    refreshDelegateInfo,
     refreshTreasuryBalance,
     sendTransaction,
     sendUi,
     studentAddr,
     symbol,
     token,
+    treasury,
   ])
 
   const treasuryLabel =
@@ -352,22 +534,44 @@ export function TeacherDashboard() {
 
   const supplyLabel =
     token.status === 'ready' ? rawToUi(token.supply, token.decimals) : '—'
+  const connectedWallet = publicKey?.toBase58() ?? null
+  const isConnectedDelegate = Boolean(
+    connected && publicKey && delegateOnChain && publicKey.equals(delegateOnChain),
+  )
+  const profileWalletPending = Boolean(
+    session && profile?.wallet_address?.startsWith('pending:'),
+  )
+  const profileWalletMismatch = Boolean(
+    session &&
+      profile?.wallet_address &&
+      connectedWallet &&
+      !profile.wallet_address.startsWith('pending:') &&
+      profile.wallet_address !== connectedWallet,
+  )
 
   return (
     <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-10">
       <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight">Teacher dashboard</h1>
         <p className="mt-2 text-base-content/80">
-          Program context on devnet, treasury balance, and SPL transfers to students ({symbol}).
+          Devnet setup: treasury balance, sending {symbol} rewards to students, and payout tools.
         </p>
+        {session && (
+          <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-base-200 px-3 py-1 text-xs">
+            <span className="font-semibold">Institution:</span>
+            <span className={profile?.institution_id ? undefined : 'text-warning'}>
+              {profile?.institution_id ? 'Linked to an institution' : 'Not linked yet'}
+            </span>
+          </div>
+        )}
       </div>
 
       {mint && treasury && token.status === 'ready' && (
         <div className="alert alert-success mb-6">
           <span>
-            Using mint <strong>{truncateAddress(mint.toBase58(), 6, 6)}</strong> and treasury{' '}
-            <strong>{truncateAddress(treasury.toBase58(), 6, 6)}</strong>. Circulating supply (mint):{' '}
-            {supplyLabel} {symbol}.
+            Reward token <strong>{truncateAddress(mint.toBase58(), 6, 6)}</strong> · Treasury{' '}
+            <strong>{truncateAddress(treasury.toBase58(), 6, 6)}</strong> · Total supply: {supplyLabel}{' '}
+            {symbol} · Decimals: {token.decimals}.
           </span>
         </div>
       )}
@@ -378,9 +582,27 @@ export function TeacherDashboard() {
         </div>
       )}
 
+      {(!mint || !treasury) && (
+        <div className="alert alert-warning mb-6" role="status">
+          <span>
+            Configure the reward token mint and treasury wallet in your environment file, restart the
+            dev server, and keep Phantom on <strong>devnet</strong> so balances load correctly.
+          </span>
+        </div>
+      )}
+
       {err && (
         <div className="alert alert-error mb-6" role="alert">
           <span>{err}</span>
+        </div>
+      )}
+
+      {(profileWalletPending || profileWalletMismatch) && (
+        <div className="alert alert-warning mb-6" role="status">
+          <span>
+            Your auth profile wallet is not linked to this connected wallet yet. Connect the intended
+            wallet and send a new magic link so ScholarFi can link your profile automatically.
+          </span>
         </div>
       )}
 
@@ -388,7 +610,10 @@ export function TeacherDashboard() {
         <div className="alert alert-info mb-6">
           <div className="w-full">
             <h3 className="font-semibold">Supabase sign-in</h3>
-            <SupabaseMagicLink />
+            <SupabaseMagicLink
+              walletAddress={publicKey?.toBase58() ?? null}
+              roleHint="teacher"
+            />
           </div>
         </div>
       )}
@@ -396,14 +621,41 @@ export function TeacherDashboard() {
       <div className="grid gap-6 md:grid-cols-2">
         <section className="card bg-base-100 shadow-xl md:col-span-2">
           <div className="card-body">
-            <h2 className="card-title">Program</h2>
+            <h2 className="card-title">Network &amp; token setup</h2>
             <dl className="grid gap-2 text-sm md:grid-cols-2">
               <div>
                 <dt className="text-base-content/60">Cluster</dt>
                 <dd className="font-medium">Devnet</dd>
               </div>
               <div>
-                <dt className="text-base-content/60">Reward mint</dt>
+                <dt className="text-base-content/60">Connected wallet</dt>
+                <dd className="flex flex-col gap-0.5">
+                  {connected && publicKey ? (
+                    <>
+                      <span className="font-mono" title={publicKey.toBase58()}>
+                        {truncateAddress(publicKey.toBase58(), 8, 8)}
+                      </span>
+                      {treasury ? (
+                        isTreasuryWallet ? (
+                          <span className="text-success text-xs">Connected as treasury wallet</span>
+                        ) : isConnectedDelegate ? (
+                          <span className="text-info text-xs">
+                            Connected as approved delegate — you can send pending payouts.
+                          </span>
+                        ) : (
+                          <span className="text-warning text-xs">
+                            Not the treasury or delegate wallet — connect one of those to send rewards.
+                          </span>
+                        )
+                      ) : null}
+                    </>
+                  ) : (
+                    <span className="text-base-content/60">Not connected — use Phantom on devnet</span>
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-base-content/60">Reward token (mint)</dt>
                 <dd>
                   {mint ? (
                     <a
@@ -415,7 +667,7 @@ export function TeacherDashboard() {
                       {truncateAddress(mint.toBase58(), 8, 8)}
                     </a>
                   ) : (
-                    <span className="text-warning">Set VITE_REWARD_MINT</span>
+                    <span className="text-warning">Not configured</span>
                   )}
                 </dd>
               </div>
@@ -432,12 +684,16 @@ export function TeacherDashboard() {
                       {truncateAddress(treasury.toBase58(), 8, 8)}
                     </a>
                   ) : (
-                    <span className="text-warning">Set VITE_TREASURY_PUBKEY</span>
+                    <span className="text-warning">Not configured</span>
                   )}
                 </dd>
               </div>
               {token.status === 'ready' && (
                 <>
+                  <div>
+                    <dt className="text-base-content/60">Decimals</dt>
+                    <dd className="tabular-nums">{token.decimals}</dd>
+                  </div>
                   <div>
                     <dt className="text-base-content/60">Token program</dt>
                     <dd>
@@ -447,7 +703,7 @@ export function TeacherDashboard() {
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-base-content/60">Minted supply</dt>
+                    <dt className="text-base-content/60">Total token supply</dt>
                     <dd className="tabular-nums">
                       {supplyLabel} {symbol}
                     </dd>
@@ -463,8 +719,19 @@ export function TeacherDashboard() {
             <h2 className="card-title">Treasury token balance</h2>
             <p className="text-3xl font-semibold tabular-nums">{treasuryLabel}</p>
             <p className="text-sm text-base-content/70">
-              SPL balance of the treasury wallet&apos;s ATA for {symbol}.
+              SPL balance of the treasury wallet&apos;s ATA for {symbol}. This is separate from
+              native SOL: sending rewards spends {symbol} tokens, not lamports (SOL only pays network
+              fees).
             </p>
+            {token.status === 'ready' && treasuryBalance === 0n && treasury && mint && (
+              <div className="alert alert-warning text-sm" role="status">
+                <span>
+                  Treasury has <strong>0</strong> {symbol} in its token account. Fund it by minting
+                  to the treasury or transferring {symbol} to the treasury address on devnet — holding
+                  SOL alone will not enable payouts.
+                </span>
+              </div>
+            )}
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
@@ -486,6 +753,74 @@ export function TeacherDashboard() {
           </div>
         </section>
 
+        <section className="card bg-base-100 shadow-xl">
+          <div className="card-body">
+            <h2 className="card-title">Delegate payouts</h2>
+            <p className="text-sm text-base-content/70">
+              Treasury can authorize one delegate wallet to send payouts without reconnecting treasury.
+            </p>
+            <div className="rounded-md border border-base-content/10 bg-base-200 p-3 text-xs">
+              <div>
+                Current delegate:{' '}
+                {delegateOnChain ? (
+                  <span className="font-mono">{truncateAddress(delegateOnChain.toBase58(), 8, 6)}</span>
+                ) : (
+                  <span>None</span>
+                )}
+              </div>
+              <div>
+                Remaining allowance:{' '}
+                {token.status === 'ready'
+                  ? `${rawToUi(delegateAllowanceRaw, token.decimals)} ${symbol}`
+                  : '—'}
+              </div>
+            </div>
+            {isTreasuryWallet ? (
+              <>
+                <label className="form-control w-full">
+                  <span className="label-text">Delegate wallet</span>
+                  <input
+                    type="text"
+                    className="input input-bordered font-mono text-sm"
+                    placeholder="Teacher wallet to authorize"
+                    value={delegateAddr}
+                    onChange={(e) => setDelegateAddr(e.target.value)}
+                  />
+                </label>
+                <label className="form-control w-full max-w-xs">
+                  <span className="label-text">Allowance ({symbol}, UI)</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    className="input input-bordered"
+                    value={delegateAllowanceUi}
+                    onChange={(e) => setDelegateAllowanceUi(e.target.value)}
+                  />
+                </label>
+                <div className="card-actions justify-end">
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    disabled={delegateBusy || token.status !== 'ready' || !mint || !treasury}
+                    onClick={() => void handleAuthorizeDelegate()}
+                  >
+                    {delegateBusy ? (
+                      <span className="loading loading-spinner loading-xs" />
+                    ) : (
+                      'Approve delegate'
+                    )}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <p className="text-xs text-base-content/60">
+                Connect treasury wallet to set or update delegate allowance.
+              </p>
+            )}
+          </div>
+        </section>
+
         <section className="card bg-base-100 shadow-xl md:col-span-2">
           <div className="card-body gap-4">
             <h2 className="card-title">Tasks</h2>
@@ -499,13 +834,11 @@ export function TeacherDashboard() {
               <p className="text-sm text-base-content/60">Loading profile…</p>
             ) : profile && profile.role !== 'teacher' ? (
               <p className="text-sm text-warning">
-                Your profile role is not <code className="text-xs">teacher</code>. Tasks are
-                created with the teacher role in <code className="text-xs">profiles</code>.
+                This account is not set up as a teacher. Only teacher accounts can create tasks here.
               </p>
             ) : !profile?.institution_id ? (
               <p className="text-sm text-warning">
-                Set <code className="text-xs">institution_id</code> on your profile so tasks are
-                scoped to your school.
+                Link your profile to a school so tasks are scoped to the right institution.
               </p>
             ) : !session ? (
               <p className="text-sm text-base-content/60">Sign in with Supabase to manage tasks.</p>
@@ -596,8 +929,8 @@ export function TeacherDashboard() {
             <div className="card-body gap-3">
               <h2 className="card-title">Pending token rewards</h2>
               <p className="text-sm text-base-content/80">
-                Students who completed a task appear here. Connect as the treasury wallet and send
-                the listed amount for each row.
+                Students who completed a task appear here. Send using treasury wallet or the approved
+                delegate wallet.
               </p>
               {pendingRewards.length === 0 ? (
                 <p className="text-sm text-base-content/60">No pending payouts.</p>
@@ -626,12 +959,7 @@ export function TeacherDashboard() {
                             <button
                               type="button"
                               className="btn btn-primary btn-xs"
-                              disabled={
-                                sendingRewardId === r.id ||
-                                !isTreasuryWallet ||
-                                token.status !== 'ready' ||
-                                !mint
-                              }
+                              disabled={sendingRewardId === r.id}
                               onClick={() => void handleSendPendingReward(r)}
                             >
                               {sendingRewardId === r.id ? (
@@ -671,13 +999,14 @@ export function TeacherDashboard() {
           </div>
         </section>
 
-        {isTreasuryWallet && mint && treasury && token.status === 'ready' && (
+        {(isTreasuryWallet || isConnectedDelegate) && mint && treasury && token.status === 'ready' && (
           <section className="card bg-base-100 shadow-xl md:col-span-2">
             <div className="card-body">
               <h2 className="card-title">Send test reward</h2>
               <p className="text-sm text-base-content/80">
-                You are connected as the treasury wallet. Transfer {symbol} from your
-                associated token account to a student wallet (you sign, devnet).
+                {isTreasuryWallet
+                  ? `You are connected as treasury. Transfer ${symbol} from treasury ATA to a student wallet.`
+                  : `You are connected as approved delegate. Transfer ${symbol} from treasury ATA using delegated allowance.`}
               </p>
               <div className="flex flex-col gap-4 md:flex-row">
                 <label className="form-control w-full flex-1">
@@ -720,12 +1049,14 @@ export function TeacherDashboard() {
           </section>
         )}
 
-        {!isTreasuryWallet && treasury && connected && (
+        {!isTreasuryWallet && !isConnectedDelegate && treasury && connected && (
           <div className="alert alert-warning md:col-span-2">
             <span>
-              Send test rewards only when your connected wallet matches{' '}
-              <code className="text-xs">VITE_TREASURY_PUBKEY</code>. Treasury:{' '}
-              {truncateAddress(treasury.toBase58(), 6, 4)}.
+              Send test rewards only as treasury or approved delegate. Treasury:{' '}
+              {truncateAddress(treasury.toBase58(), 6, 4)}
+              {delegateOnChain
+                ? ` · Delegate: ${truncateAddress(delegateOnChain.toBase58(), 6, 4)}.`
+                : '.'}
             </span>
           </div>
         )}

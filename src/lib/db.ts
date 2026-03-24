@@ -8,6 +8,42 @@ import type {
   UserRewardRow,
 } from '../types/db.ts'
 
+const PROFILE_ROLES = new Set<ProfileRow['role']>([
+  'student',
+  'teacher',
+  'admin',
+  'partner',
+])
+
+const DEMO_DEFAULT_INSTITUTION_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+
+function resolveDefaultInstitutionId(): string {
+  const raw = import.meta.env.VITE_DEFAULT_INSTITUTION_ID
+  if (typeof raw === 'string' && raw.trim().length > 0) {
+    return raw.trim()
+  }
+  return DEMO_DEFAULT_INSTITUTION_ID
+}
+
+function parseProfileRole(raw: unknown): ProfileRow['role'] {
+  if (typeof raw !== 'string') return 'student'
+  return PROFILE_ROLES.has(raw as ProfileRow['role'])
+    ? (raw as ProfileRow['role'])
+    : 'student'
+}
+
+function isDuplicateAssignmentCompletionError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false
+  const maybe = error as { code?: string; message?: string; details?: string }
+  return (
+    maybe.code === '23505' &&
+    ((maybe.message?.includes('academic_actions_unique_assignment_task_idx') ??
+      false) ||
+      (maybe.details?.includes('academic_actions_unique_assignment_task_idx') ??
+        false))
+  )
+}
+
 /**
  * Read a profile by wallet (public key string). Works if RLS allows (e.g. own row or policy on wallet lookup).
  */
@@ -26,6 +62,77 @@ export async function getProfileByWallet(walletAddress: string) {
  */
 export async function getMyProfile() {
   const { data, error } = await supabase.from('profiles').select('*').maybeSingle()
+  return { data: data as ProfileRow | null, error }
+}
+
+export async function syncMyProfileWithWallet(walletAddress: string) {
+  const wallet = walletAddress.trim()
+  if (!wallet) {
+    return { data: null, error: new Error('Wallet address is required.') }
+  }
+  const defaultInstitutionId = resolveDefaultInstitutionId()
+
+  const { data: userData, error: authError } = await supabase.auth.getUser()
+  const user = userData.user
+  const uid = user?.id
+  if (!uid) {
+    return {
+      data: null,
+      error: authError ?? new Error('Not signed in with Supabase.'),
+    }
+  }
+
+  const role = parseProfileRole(user.user_metadata?.role)
+  const fullName =
+    typeof user.user_metadata?.full_name === 'string'
+      ? user.user_metadata.full_name
+      : null
+  const institutionId =
+    typeof user.user_metadata?.institution_id === 'string'
+      ? user.user_metadata.institution_id
+      : null
+
+  const { data: existingProfile, error: existingErr } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', uid)
+    .maybeSingle()
+  if (existingErr) return { data: null, error: existingErr }
+
+  const { data: conflict, error: conflictErr } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('wallet_address', wallet)
+    .neq('id', uid)
+    .maybeSingle()
+
+  if (conflictErr) return { data: null, error: conflictErr }
+  if (conflict) {
+    return {
+      data: null,
+      error: new Error('This wallet is already linked to another profile.'),
+    }
+  }
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .upsert(
+      {
+        id: uid,
+        wallet_address: wallet,
+        role: existingProfile?.role ?? role,
+        full_name: existingProfile?.full_name ?? fullName,
+        email: user.email ?? null,
+        institution_id:
+          existingProfile?.institution_id ?? institutionId ?? defaultInstitutionId,
+        status: 'active',
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'id' },
+    )
+    .select('*')
+    .single()
+
   return { data: data as ProfileRow | null, error }
 }
 
@@ -226,6 +333,17 @@ export type PendingTokenRewardRow = UserRewardRow & {
   task_title: string
 }
 
+export type InsertRewardWalletTransactionInput = {
+  userRewardId: string
+  walletAddress: string
+  transactionType: 'mint' | 'transfer'
+  network: 'devnet' | 'testnet' | 'mainnet-beta'
+  txSignature: string
+  tokenMintAddress?: string | null
+  amount?: string | null
+  status?: 'pending' | 'confirmed' | 'failed'
+}
+
 /**
  * Pending SPL rewards for learners in the same institution (teacher fulfills on-chain).
  */
@@ -283,6 +401,27 @@ export async function listPendingTokenRewardsForInstitution(
   }
 
   return { data: out, error: null }
+}
+
+export async function insertRewardWalletTransaction(
+  input: InsertRewardWalletTransactionInput,
+) {
+  const { data, error } = await supabase
+    .from('reward_wallet_transactions')
+    .insert({
+      user_reward_id: input.userRewardId,
+      wallet_address: input.walletAddress,
+      transaction_type: input.transactionType,
+      network: input.network,
+      tx_signature: input.txSignature,
+      token_mint_address: input.tokenMintAddress ?? null,
+      amount: input.amount ?? null,
+      status: input.status ?? 'confirmed',
+    })
+    .select()
+    .single()
+
+  return { data, error }
 }
 
 /**
@@ -343,6 +482,9 @@ export async function completeTaskForCurrentUser(taskId: string) {
     metadata: { task_id: taskId },
   })
 
+  if (isDuplicateAssignmentCompletionError(aErr)) {
+    return { data: null, error: new Error('You already completed this task.') }
+  }
   if (aErr || !action) {
     return { data: null, error: aErr ?? new Error('Could not record completion.') }
   }
