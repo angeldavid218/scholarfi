@@ -42,11 +42,11 @@ export function AppLayout() {
             className="btn btn-ghost gap-2 px-2 text-xl font-bold normal-case"
           >
             <img
-              src="/sholarfi.png"
-              alt=""
+              src="/scholarfi-logo-1.png"
+              alt="Scholarfi"
               width={36}
               height={36}
-              className="h-9 w-9 shrink-0 object-contain"
+              className="h-9 w-9 shrink-0 rounded-md bg-base-100 object-contain p-0.5 shadow-sm ring-1 ring-base-content/10"
               decoding="async"
             />
             <span>Scholarfi</span>
@@ -129,7 +129,16 @@ export function AppLayout() {
       </main>
 
       <footer className="footer footer-center bg-base-300 p-10 text-base-content">
-        <aside className="gap-2">
+        <aside className="flex flex-col items-center gap-3">
+          <img
+            src="/scholarfi-logo-1.png"
+            alt=""
+            width={40}
+            height={40}
+            className="h-10 w-10 rounded-lg bg-base-100 object-contain p-0.5 opacity-95 shadow-sm ring-1 ring-base-content/10"
+            decoding="async"
+            aria-hidden
+          />
           <p className="font-medium">© {new Date().getFullYear()} Scholarfi</p>
           <p className="text-sm opacity-70">Built on Solana</p>
         </aside>

@@ -13,20 +13,19 @@ export function LandingPage() {
       >
         <div className="hero-content px-4 text-center">
           <div className="max-w-2xl">
-            <img
-              src="/sholarfi.png"
-              alt=""
-              width={160}
-              height={160}
-              className="mx-auto mb-6 h-28 w-28 object-contain md:h-36 md:w-36"
-              decoding="async"
-            />
-            <h1
-              id="hero-heading"
-              className="text-4xl font-bold tracking-tight md:text-6xl"
-            >
-              Scholarfi
-            </h1>
+            <div className="mx-auto mb-8 flex justify-center">
+              <div className="rounded-3xl bg-base-100 p-6 shadow-2xl ring-1 ring-base-content/10 md:p-8">
+                <img
+                  src="/scholarfi-logo.png"
+                  alt=""
+                  width={406}
+                  height={406}
+                  className="mx-auto h-50 w-50 object-contain md:h-48 md:w-48"
+                  decoding="async"
+                  aria-hidden
+                />
+              </div>
+            </div>
             <p className="py-6 text-lg text-base-content/80 md:text-xl">
               Turn academic effort into real on-chain rewards.
             </p>
