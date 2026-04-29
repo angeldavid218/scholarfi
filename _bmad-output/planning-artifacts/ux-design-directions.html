@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ScholarFi — Design directions</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --sf-primary: #00595c;
+      --sf-secondary: #5c5200;
+      --sf-tertiary: #2e3192;
+      --sf-neutral: #747877;
+      --sf-surface: #f6f7f8;
+      --sf-surface-2: #eef0f2;
+      --sf-ink: #121516;
+      --sf-error: #b42318;
+      --radius: 12px;
+      --font: "Plus Jakarta Sans", system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--font);
+      color: var(--sf-ink);
+      background: #e8eaed;
+      min-height: 100vh;
+    }
+    .app {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      min-height: 100vh;
+    }
+    @media (max-width: 900px) {
+      .app { grid-template-columns: 1fr; }
+      aside { position: sticky; top: 0; z-index: 20; max-height: 40vh; overflow: auto; }
+    }
+    aside {
+      background: linear-gradient(180deg, #0a2a2c 0%, #063032 100%);
+      color: #e8f4f4;
+      padding: 1.25rem;
+      border-right: 1px solid rgba(255,255,255,0.08);
+    }
+    aside h1 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin: 0 0 0.25rem;
+      letter-spacing: 0.02em;
+    }
+    aside p {
+      margin: 0 0 1rem;
+      font-size: 0.8rem;
+      opacity: 0.85;
+      line-height: 1.45;
+    }
+    .nav-label {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      opacity: 0.55;
+      margin: 1rem 0 0.5rem;
+    }
+    nav button {
+      display: block;
+      width: 100%;
+      text-align: left;
+      border: 1px solid transparent;
+      background: rgba(255,255,255,0.04);
+      color: inherit;
+      font: inherit;
+      padding: 0.55rem 0.65rem;
+      border-radius: 8px;
+      margin-bottom: 0.35rem;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    nav button:hover { background: rgba(255,255,255,0.09); }
+    nav button[aria-current="true"] {
+      background: rgba(0, 89, 92, 0.45);
+      border-color: rgba(255,255,255,0.12);
+      font-weight: 600;
+    }
+    .hint {
+      margin-top: 1rem;
+      font-size: 0.75rem;
+      line-height: 1.5;
+      opacity: 0.75;
+    }
+    main {
+      padding: 1.25rem 1.5rem 2rem;
+      overflow: auto;
+    }
+    .panel {
+      display: none;
+      animation: fade 0.2s ease;
+    }
+    .panel.active { display: block; }
+    @keyframes fade {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .panel-header {
+      margin-bottom: 1rem;
+    }
+    .panel-header h2 {
+      margin: 0 0 0.35rem;
+      font-size: 1.35rem;
+      font-weight: 700;
+    }
+    .panel-header .tag {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 0.2rem 0.5rem;
+      border-radius: 999px;
+      background: var(--sf-surface-2);
+      color: var(--sf-neutral);
+    }
+    .panel-header p {
+      margin: 0.5rem 0 0;
+      max-width: 62ch;
+      color: #3d4548;
+      font-size: 0.9rem;
+      line-height: 1.55;
+    }
+    .mock {
+      border-radius: 16px;
+      border: 1px solid rgba(0,0,0,0.06);
+      overflow: hidden;
+      box-shadow: 0 16px 48px rgba(15, 23, 32, 0.08);
+      background: #fff;
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.65rem 1rem;
+      gap: 1rem;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+    }
+    .topbar.glass {
+      background: rgba(255,255,255,0.55);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid rgba(255,255,255,0.35);
+    }
+    .brand {
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--sf-primary);
+    }
+    .top-actions { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+    .btn {
+      font: inherit;
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0.45rem 0.85rem;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.15s, opacity 0.15s;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-primary {
+      background: linear-gradient(135deg, #006b6f, #00595c);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(0, 89, 92, 0.25);
+    }
+    .btn-primary:hover { opacity: 0.95; }
+    .btn-ghost {
+      background: transparent;
+      color: var(--sf-neutral);
+      border: 1px solid rgba(0,0,0,0.1);
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      min-height: 380px;
+    }
+    @media (max-width: 720px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+    .main-col { padding: 1rem 1.1rem; background: var(--sf-surface); }
+    .rail {
+      padding: 1rem;
+      background: #fff;
+      border-left: 1px solid rgba(0,0,0,0.06);
+    }
+    .dense .main-col { padding: 0.65rem 0.75rem; }
+    .dense .rail { padding: 0.65rem 0.75rem; }
+    .hero {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 1rem;
+      align-items: start;
+      margin-bottom: 1rem;
+    }
+    .hero h3 { margin: 0; font-size: 1.05rem; font-weight: 700; }
+    .metric {
+      text-align: right;
+    }
+    .metric .lbl { font-size: 0.7rem; color: var(--sf-neutral); font-weight: 600; }
+    .metric .val { font-size: 1.35rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--sf-primary); }
+    .cards {
+      display: grid;
+      gap: 0.65rem;
+    }
+    .card {
+      background: #fff;
+      border-radius: var(--radius);
+      padding: 0.75rem 0.85rem;
+      border: 1px solid rgba(0,0,0,0.05);
+    }
+    .card h4 { margin: 0 0 0.25rem; font-size: 0.85rem; font-weight: 700; }
+    .card .sub { margin: 0; font-size: 0.75rem; color: var(--sf-neutral); line-height: 1.4; }
+    .pipeline {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      margin-top: 0.5rem;
+    }
+    .pill {
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 0.2rem 0.45rem;
+      border-radius: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .pill-pend { background: #eceeef; color: #4b5256; }
+    .pill-doc { background: rgba(46, 49, 146, 0.12); color: var(--sf-tertiary); }
+    .pill-adm { background: rgba(0, 89, 92, 0.12); color: var(--sf-primary); }
+    .pill-rew {
+      background: rgba(92, 82, 0, 0.12);
+      color: var(--sf-secondary);
+    }
+    .list { list-style: none; margin: 0; padding: 0; }
+    .list li {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.75rem;
+      padding: 0.55rem 0;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+      font-size: 0.8rem;
+    }
+    .list li:last-child { border-bottom: none; }
+    .rail h4 { margin: 0 0 0.5rem; font-size: 0.8rem; font-weight: 700; color: var(--sf-neutral); text-transform: uppercase; letter-spacing: 0.06em; }
+    .timeline { font-size: 0.78rem; line-height: 1.45; color: #3d4548; }
+    .timeline div { margin-bottom: 0.45rem; padding-left: 0.65rem; border-left: 2px solid var(--sf-tertiary); }
+    .auth-split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      min-height: 420px;
+    }
+    @media (max-width: 720px) { .auth-split { grid-template-columns: 1fr; } }
+    .auth-brand {
+      padding: 1.5rem;
+      background: linear-gradient(145deg, #042f32, #0a3d42 55%, #0e4a50);
+      color: #e6f7f7;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+    }
+    .auth-brand h3 { margin: 0 0 0.5rem; font-size: 1.25rem; }
+    .auth-brand p { margin: 0; opacity: 0.88; font-size: 0.85rem; line-height: 1.55; max-width: 36ch; }
+    .auth-form {
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      background: #fff;
+    }
+    .field { margin-bottom: 0.75rem; }
+    .field label { display: block; font-size: 0.72rem; font-weight: 700; color: var(--sf-neutral); margin-bottom: 0.25rem; }
+    .field input {
+      width: 100%;
+      padding: 0.55rem 0.65rem;
+      border-radius: 8px;
+      border: 1px solid rgba(0,0,0,0.12);
+      font: inherit;
+      background: #fafbfb;
+    }
+    .indigo .pill-doc { background: rgba(46, 49, 146, 0.22); color: #1e2066; }
+    .indigo .rail { border-left: 3px solid var(--sf-tertiary); }
+    .warm .metric .val { color: var(--sf-secondary); }
+    .warm .btn-primary {
+      background: linear-gradient(135deg, #6a5f12, #5c5200);
+      box-shadow: 0 4px 14px rgba(92, 82, 0, 0.22);
+    }
+    .mono .main-col { background: #eef5f5; }
+    .mono .pill-adm { background: rgba(0, 89, 92, 0.18); }
+    .railwide .layout { grid-template-columns: 1fr 360px; }
+    .compare-bar {
+      margin-top: 1rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+      font-size: 0.78rem;
+      color: #3d4548;
+    }
+    .swatch {
+      width: 14px; height: 14px; border-radius: 4px;
+      display: inline-block; vertical-align: middle; margin-right: 0.25rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside>
+      <h1>ScholarFi design directions</h1>
+      <p>Exploración visual para el demo simulator. Colores base: teal, olive, indigo, neutral (design notes).</p>
+      <div class="nav-label">Direcciones</div>
+      <nav id="nav" aria-label="Direcciones de diseño"></nav>
+      <p class="hint">Usa los botones para comparar jerarquía, densidad, acento y navegación. Abre en pantalla ancha para ver rail + cola.</p>
+    </aside>
+    <main id="main"></main>
+  </div>
+
+  <script>
+    const directions = [
+      {
+        id: "d1",
+        title: "1 — Quiet Ledger",
+        tag: "Recomendada · MVP demo",
+        blurb: "Superficies tonales, poca línea dura, rail estrecho. Prioriza confianza institucional y calma (Step 4).",
+        className: "",
+        topbar: "solid",
+        extra: "Superficie principal gris muy suave; tarjetas blancas flotando. CTA teal con gradiente sutil.",
+        render: (c) => defaultDashboard(c)
+      },
+      {
+        id: "d2",
+        title: "2 — Queue Dense",
+        tag: "Operadores · docente/admin",
+        blurb: "Mayor densidad tipo cola (Linear): más filas visibles, menos aire entre ítems. Misma semántica de estado.",
+        className: "dense",
+        topbar: "solid",
+        extra: "Listas más compactas; ideal si el usuario pasa horas en validación.",
+        render: (c) => defaultDashboard(c)
+      },
+      {
+        id: "d3",
+        title: "3 — Editorial Split Auth",
+        tag: "Marketing + producto",
+        blurb: "Patrón de login split-screen: narrativa institucional a la izquierda, tarea enfocada a la derecha (notas/ mocks).",
+        className: "",
+        topbar: "solid",
+        extra: "Misma dirección puede aplicarse solo a auth; el dashboard sigue asimétrico.",
+        render: () => authSplitMock()
+      },
+      {
+        id: "d4",
+        title: "4 — Indigo Verification",
+        tag: "Acento terciario",
+        blurb: "El indigo (#2E3192) lidera señales de “validación docente” y bordes de confianza; teal reservado para finalidad institucional.",
+        className: "indigo",
+        topbar: "solid",
+        extra: "Útil si quieres separar visualmente validación vs aprobación final.",
+        render: (c) => defaultDashboard(c)
+      },
+      {
+        id: "d5",
+        title: "5 — Warm Olive CTA",
+        tag: "Acento secundario",
+        blurb: "Olive como gradiente de CTA y métrica de “recompensa simulada”; teal en badges de aprobación admin.",
+        className: "warm",
+        topbar: "solid",
+        extra: "Cuidado contraste en texto pequeño sobre gold — usar solo en botones y números grandes.",
+        render: (c) => defaultDashboard(c)
+      },
+      {
+        id: "d6",
+        title: "6 — Teal Monochrome",
+        tag: "Marca dominante",
+        blurb: "Casi todo en familia teal + grises; secundarios muy restringidos. Máxima seriedad “ledger”.",
+        className: "mono",
+        topbar: "solid",
+        extra: "Menos “warmth”; puede sentirse más bancario — bueno para compradores conservadores.",
+        render: (c) => defaultDashboard(c)
+      },
+      {
+        id: "d7",
+        title: "7 — Glass Nav Premium",
+        tag: "Navbar / modales",
+        blurb: "Topbar cristal (blur) sobre contenido; densidad estándar. Alineado a Step 6: glass solo nav/modal.",
+        className: "",
+        topbar: "glass",
+        extra: "Verificar contraste del texto sobre blur en demos proyectados.",
+        render: (c) => defaultDashboard(c)
+      },
+      {
+        id: "d8",
+        title: "8 — Wide History Rail",
+        tag: "Auditoría visible",
+        blurb: "Rail más ancho para timeline / historial de acciones; columna principal algo más estrecha.",
+        className: "railwide",
+        topbar: "solid",
+        extra: "Refuerza “pipeline ledger” sin crypto; útil en detalle de entrega.",
+        render: (c) => defaultDashboard(c)
+      }
+    ];
+
+    function defaultDashboard(opts) {
+      const tb = opts.topbar === "glass" ? "topbar glass" : "topbar";
+      return `
+        <div class="mock ${opts.className}">
+          <div class="${tb}">
+            <div class="brand">ScholarFi</div>
+            <div class="top-actions">
+              <button type="button" class="btn btn-ghost">Cola</button>
+              <button type="button" class="btn btn-primary">Validar siguiente</button>
+            </div>
+          </div>
+          <div class="layout">
+            <div class="main-col">
+              <div class="hero">
+                <div>
+                  <h3>Panel docente</h3>
+                  <p class="sub" style="margin:0.35rem 0 0;font-size:0.8rem;color:#555">Entregas pendientes de validación · Demo</p>
+                </div>
+                <div class="metric">
+                  <div class="lbl">Por validar</div>
+                  <div class="val">12</div>
+                </div>
+              </div>
+              <div class="cards">
+                <div class="card">
+                  <h4>Informe · Historia regional</h4>
+                  <p class="sub">María G. · 3º secundaria · Entregada hace 2 h</p>
+                  <div class="pipeline">
+                    <span class="pill pill-pend">Pendiente</span>
+                    <span class="pill pill-doc">Validación docente</span>
+                    <span class="pill pill-adm">Aprobación admin</span>
+                    <span class="pill pill-rew">Recompensa simulada</span>
+                  </div>
+                </div>
+                <div class="card">
+                  <h4>Ejercicios · Matemática</h4>
+                  <p class="sub">Luis P. · PDF + 3 imágenes</p>
+                  <div class="pipeline">
+                    <span class="pill pill-pend">Pendiente</span>
+                    <span class="pill pill-doc">Validación docente</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="rail">
+              <h4>Historial</h4>
+              <div class="timeline">
+                <div><strong>14:02</strong> — Entrega registrada (estudiante)</div>
+                <div><strong>—</strong> — Pendiente de validación docente</div>
+                <div><strong>—</strong> — Aprobación administrador (bloqueada)</div>
+              </div>
+              <ul class="list" style="margin-top:0.75rem">
+                <li><span>Estado canonical</span><span class="pill pill-doc" style="text-transform:none;letter-spacing:0">Validación docente</span></li>
+                <li><span>Siguiente actor</span><span style="font-weight:600;color:var(--sf-primary)">Docente</span></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function authSplitMock() {
+      return `
+        <div class="mock">
+          <div class="auth-split">
+            <div class="auth-brand">
+              <h3>Ledger institucional, sin ruido</h3>
+              <p>Gobernanza en dos pasos: validación docente y aprobación administrativa. Recompensa simulada solo al cierre.</p>
+            </div>
+            <div class="auth-form">
+              <h3 style="margin:0 0 1rem;font-size:1.1rem">Iniciar sesión</h3>
+              <div class="field">
+                <label for="em">Correo institucional</label>
+                <input id="em" type="email" placeholder="docente@escuela.edu" autocomplete="username" />
+              </div>
+              <div class="field">
+                <label for="pw">Contraseña</label>
+                <input id="pw" type="password" placeholder="••••••••" autocomplete="current-password" />
+              </div>
+              <button type="button" class="btn btn-primary" style="width:100%;margin-top:0.5rem;border-radius:10px">Continuar</button>
+              <p style="margin:1rem 0 0;font-size:0.75rem;color:var(--sf-neutral);line-height:1.45">Texto y estados en español; sin metáforas de wallet en flujos escolares.</p>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderMain(index) {
+      const d = directions[index];
+      const html = d.render({ className: d.className, topbar: d.topbar });
+      document.getElementById("main").innerHTML = `
+        <div class="panel active">
+          <div class="panel-header">
+            <h2>${d.title}</h2>
+            <span class="tag">${d.tag}</span>
+            <p>${d.blurb}</p>
+            <p style="margin-top:0.5rem;font-size:0.82rem;color:#5a6164"><strong>Notas:</strong> ${d.extra}</p>
+            <div class="compare-bar">
+              <span><span class="swatch" style="background:var(--sf-primary)"></span>Primary teal</span>
+              <span><span class="swatch" style="background:var(--sf-secondary)"></span>Secondary olive</span>
+              <span><span class="swatch" style="background:var(--sf-tertiary)"></span>Tertiary indigo</span>
+              <span><span class="swatch" style="background:var(--sf-neutral)"></span>Neutral</span>
+            </div>
+          </div>
+          ${html}
+        </div>
+      `;
+    }
+
+    const nav = document.getElementById("nav");
+    directions.forEach((d, i) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = d.title.replace(/^\d+ — /, "");
+      b.setAttribute("aria-current", i === 0 ? "true" : "false");
+      b.addEventListener("click", () => {
+        nav.querySelectorAll("button").forEach((x) => x.setAttribute("aria-current", "false"));
+        b.setAttribute("aria-current", "true");
+        renderMain(i);
+      });
+      nav.appendChild(b);
+    });
+
+    renderMain(0);
+  </script>
+</body>
+</html>
