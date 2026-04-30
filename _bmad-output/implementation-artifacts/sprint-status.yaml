@@ -1,0 +1,97 @@
+# generated: 2026-04-29T10:27:00-07:00
+# last_updated: 2026-04-29T15:30:00-07:00
+# project: scholarfi
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: /Users/angelserrano/development/scholarfi/_bmad-output/implementation-artifacts
+#
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog -> in-progress: Automatically when first story is created
+#   - in-progress -> done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - Developer typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review in fresh context
+
+generated: 2026-04-29T10:27:00-07:00
+last_updated: 2026-04-29T15:30:00-07:00
+project: scholarfi
+project_key: NOKEY
+tracking_system: file-system
+story_location: /Users/angelserrano/development/scholarfi/_bmad-output/implementation-artifacts
+
+development_status:
+  epic-1: done
+  1-1-initialize-approved-starter-foundations: done
+  1-2-email-password-sign-in: done
+  1-3-sign-out-and-token-revocation: done
+  1-4-protected-route-authorization-gate: done
+  1-5-profile-and-role-summary-endpoint: done
+  1-6-tenant-scope-enforcement: done
+  epic-1-retrospective: optional
+
+  epic-2: done
+  2-1-create-institution-with-unique-code: done
+  2-2-activate-and-deactivate-institution: done
+  2-3-bootstrap-first-school-admin: done
+  2-4-provision-teacher-and-student-accounts: done
+  2-5-role-assignment-and-teacher-student-association: done
+  epic-2-retrospective: optional
+
+  epic-3: done
+  3-1-teacher-creates-task: done
+  3-2-teacher-task-listing: done
+  3-3-student-active-task-listing: done
+  3-4-task-closure: done
+  3-5-submission-eligibility-enforcement: done
+  epic-3-retrospective: optional
+
+  epic-4: done
+  4-1-student-evidence-submission: done
+  4-2-submission-status-pipeline-visibility: done
+  4-3-teacher-validation-queue: done
+  4-4-teacher-validate-submission: done
+  4-5-teacher-reject-submission-with-reason: done
+  4-6-school-admin-approval-queue: done
+  4-7-school-admin-approve-or-reject-validated-submission: done
+  4-8-transition-guard-and-chronological-history: done
+  epic-4-retrospective: optional
+
+  epic-5: done
+  5-1-record-simulated-reward-disbursement: done
+  5-2-idempotent-reward-posting: done
+  5-3-maintain-student-simulated-balance: done
+  5-4-student-balance-visibility: done
+  5-5-admin-reward-history-view: done
+  epic-5-retrospective: optional
+
+  epic-6: done
+  6-1-demo-seed-baseline: done
+  6-2-demo-reset-baseline: done
+  6-3-canonical-spanish-status-and-copy-centralization: done
+  6-4-accessibility-hardening-for-core-flows: done
+  6-5-responsive-hardening-for-core-screens: done
+  6-6-ci-and-quality-baseline-for-mvp: done
+  6-7-epic-6-readiness-gates-and-sign-off: done
+  epic-6-retrospective: optional
