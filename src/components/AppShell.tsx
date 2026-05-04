@@ -8,6 +8,7 @@ import {
   HiClipboardDocumentList,
   HiGlobeAlt,
   HiHome,
+  HiInboxStack,
   HiPresentationChartLine,
   HiRectangleGroup,
 } from 'react-icons/hi2'
@@ -36,7 +37,12 @@ export function AppShell() {
 
   const panelItems: NavItem[] = [
     ...(roles.includes('student') ? [{ to: '/student', label: 'Estudiante', Icon: HiAcademicCap } as NavItem] : []),
-    ...(roles.includes('teacher') ? [{ to: '/teacher', label: 'Docente', Icon: HiClipboardDocumentList } as NavItem] : []),
+    ...(roles.includes('teacher')
+      ? ([
+          { to: '/teacher', end: true, label: 'Docente', Icon: HiClipboardDocumentList },
+          { to: '/teacher/cola-validacion', label: 'Cola de validacion', Icon: HiInboxStack },
+        ] as NavItem[])
+      : []),
     ...(roles.includes('school_admin')
       ? [{ to: '/admin', label: 'Admin escolar', Icon: HiBuildingOffice2 } as NavItem]
       : []),

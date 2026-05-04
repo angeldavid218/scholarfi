@@ -2,6 +2,8 @@ import { useState, type FormEvent } from 'react'
 import {
   HiArrowRightOnRectangle,
   HiArrowRightStartOnRectangle,
+  HiEye,
+  HiEyeSlash,
   HiEnvelope,
   HiLockClosed,
 } from 'react-icons/hi2'
@@ -17,8 +19,13 @@ export function LoginPage() {
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
+
+  function handleToggle() {
+    setShowPassword((prev) => !prev)
+  }
 
   if (token && bootstrapping) {
     return (
@@ -119,14 +126,29 @@ export function LoginPage() {
                       Contrasena
                     </span>
                   </div>
-                  <input
-                    type="password"
-                    autoComplete="current-password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="input input-bordered w-full"
-                    required
-                  />
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      autoComplete="current-password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="input input-bordered w-full pe-12"
+                      required
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-square btn-sm absolute end-1 top-1/2 min-h-8 w-8 -translate-y-1/2 border-0"
+                      onClick={handleToggle}
+                      aria-label={showPassword ? 'Ocultar contrasena' : 'Mostrar contrasena'}
+                      aria-pressed={showPassword}
+                    >
+                      {showPassword ? (
+                        <HiEyeSlash className="h-5 w-5 opacity-80" aria-hidden />
+                      ) : (
+                        <HiEye className="h-5 w-5 opacity-80" aria-hidden />
+                      )}
+                    </button>
+                  </div>
                 </label>
                 <div className="card-actions mt-2 justify-end gap-2">
                   <button type="button" className="btn btn-ghost gap-1" onClick={() => void logout()}>

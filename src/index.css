@@ -50,6 +50,11 @@
 
 @theme {
   --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+  /* Executive hero: soft mint surface (matches validation queue mockup) */
+  --color-sf-hero-surface: #f1f5f4;
+  --color-sf-hero-surface-mid: #edf2f0;
+  --color-sf-hero-surface-deep: #eaf1ee;
+  --color-sf-hero-border: #e5e7eb;
 }
 
 @layer base {
@@ -72,15 +77,18 @@
     flex-wrap: wrap;
     justify-content: space-between;
     gap: 1rem;
-    border: 1px solid color-mix(in oklab, var(--color-primary) 20%, var(--color-base-300));
+    border: 1px solid var(--color-sf-hero-border);
     border-radius: 1rem;
     background: linear-gradient(
-      135deg,
-      color-mix(in oklab, var(--color-primary) 12%, var(--color-base-100)),
-      color-mix(in oklab, var(--color-accent) 8%, var(--color-base-100))
+      165deg,
+      var(--color-sf-hero-surface) 0%,
+      var(--color-sf-hero-surface-mid) 52%,
+      var(--color-sf-hero-surface-deep) 100%
     );
     padding: 1.25rem;
-    box-shadow: 0 8px 24px color-mix(in oklab, var(--color-primary) 14%, transparent);
+    box-shadow:
+      0 1px 2px color-mix(in oklab, var(--color-base-content) 6%, transparent),
+      0 12px 28px color-mix(in oklab, var(--color-success) 9%, transparent);
   }
 
   .sf-eyebrow {
@@ -89,7 +97,7 @@
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: color-mix(in oklab, var(--color-base-content) 82%, var(--color-primary));
+    color: color-mix(in oklab, var(--color-primary) 92%, var(--color-base-content));
   }
 
   .sf-title {

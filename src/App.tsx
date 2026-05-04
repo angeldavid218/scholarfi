@@ -10,6 +10,7 @@ import { StudentHome } from './pages/student/StudentHome'
 import { SubmissionDetailPage } from './pages/student/SubmissionDetailPage'
 import { SuperHome } from './pages/super/SuperHome'
 import { TeacherHome } from './pages/teacher/TeacherHome'
+import { TeacherValidationQueuePage } from './pages/teacher/TeacherValidationQueuePage'
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
           </Route>
           <Route element={<RoleGate allow={['teacher']} />}>
             <Route path="teacher" element={<TeacherHome />} />
+            <Route path="teacher/cola-validacion" element={<TeacherValidationQueuePage />} />
           </Route>
           <Route element={<RoleGate allow={['school_admin']} />}>
             <Route path="admin" element={<AdminHome />} />
