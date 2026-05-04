@@ -9,7 +9,7 @@ import {
 } from 'react-icons/hi2'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
-import { ScholarDiWordmark, ScholarFiWordmark } from '../components/BrandLogos'
+import { ScholarFiWordmark } from '../components/BrandLogos'
 import { KpiStrip } from '../components/ui/executive'
 
 export function LoginPage() {
@@ -53,30 +53,38 @@ export function LoginPage() {
   }
 
   return (
-    <div className="grid min-h-svh lg:grid-cols-2">
-      <aside className="hidden flex-col justify-center bg-primary px-10 py-12 text-primary-content lg:flex">
-        <p className="text-sm font-medium uppercase tracking-wide opacity-90">ScholarFi</p>
-        <h1 className="mt-2 text-3xl font-semibold leading-tight tracking-tight">
-          Libro mayor del merito escolar
-        </h1>
-        <p className="mt-4 max-w-md text-sm leading-relaxed opacity-95">
-          Gobernanza clara, colas de validacion y recompensa simulada — sin ruido de cadena. Accede con tu cuenta
-          institucional.
-        </p>
-        <div className="mt-6 rounded-box border border-primary-content/20 bg-primary-content/10 p-4">
-          <p className="text-sm font-semibold">Pensado para direccion y comites</p>
-          <p className="mt-1 text-sm opacity-90">
-            Trazabilidad por rol, decisiones auditables y visualizacion clara del avance estudiantil.
-          </p>
+    <div className="grid min-h-svh grid-cols-1 lg:grid-cols-2">
+      <aside className="relative flex min-h-[46vh] flex-col justify-center overflow-hidden border-b border-white/10 bg-primary px-8 py-10 text-primary-content sm:px-10 lg:min-h-svh lg:border-b-0 lg:border-r lg:py-14">
+        {/* Background: ScholarFi wordmark only as oversized watermark — no photo */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
+          <ScholarFiWordmark className="absolute left-1/2 top-1/2 h-[min(78vh,32rem)] w-auto max-w-[min(145vw,52rem)] -translate-x-1/2 -translate-y-1/2 rotate-[-7deg] object-contain opacity-[0.14] brightness-0 invert" />
+        </div>
+        <div
+          className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-base-content/20 via-transparent to-base-content/15"
+          aria-hidden
+        />
+
+        <div className="relative z-[1] mx-auto flex w-full max-w-xl flex-col gap-6">
+          <div>
+            <h1 className="text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">
+              Libro mayor del merito escolar
+            </h1>
+            <p className="mt-4 max-w-md text-sm leading-relaxed text-primary-content/95">
+              Gobernanza clara, colas de validacion y recompensa simulada — sin ruido de cadena. Accede con tu cuenta
+              institucional.
+            </p>
+            <div className="mt-6 rounded-box border border-white/15 bg-base-content/10 p-4 backdrop-blur-[2px]">
+              <p className="text-sm font-semibold">Pensado para direccion y comites</p>
+              <p className="mt-1 text-sm text-primary-content/90">
+                Trazabilidad por rol, decisiones auditables y visualizacion clara del avance estudiantil.
+              </p>
+            </div>
+          </div>
         </div>
       </aside>
 
       <div className="flex items-center justify-center bg-base-200 p-6">
         <div className="w-full max-w-md space-y-4">
-          <div className="flex flex-col items-center gap-2 px-1 lg:hidden">
-            <ScholarFiWordmark className="h-9 w-auto max-w-[200px] object-contain" />
-            <ScholarDiWordmark className="h-6 w-auto max-w-[160px] object-contain opacity-90" />
-          </div>
           <KpiStrip
             items={[
               { label: 'Gobernanza', value: '100%', hint: 'Flujo por roles' },
@@ -85,9 +93,6 @@ export function LoginPage() {
           />
           <div className="card border border-base-300 bg-base-100 shadow-xl">
             <div className="card-body">
-              <div className="flex justify-center pb-1">
-                <ScholarFiWordmark className="h-10 w-auto max-w-[200px] object-contain" />
-              </div>
               <h2 className="card-title justify-center text-2xl font-semibold text-base-content">
                 Iniciar sesion
               </h2>
