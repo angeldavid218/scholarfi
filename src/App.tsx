@@ -15,10 +15,10 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/demo" element={<DemoPage />} />
       <Route element={<RequireAuth />}>
         <Route path="/" element={<AppShell />}>
           <Route index element={<HomeRedirect />} />
+          <Route path="demo" element={<DemoPage />} />
           <Route element={<RoleGate allow={['student']} />}>
             <Route path="student" element={<StudentHome />} />
             <Route path="student/submissions/:submissionId" element={<SubmissionDetailPage />} />

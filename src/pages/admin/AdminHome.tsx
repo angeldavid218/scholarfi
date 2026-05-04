@@ -1,6 +1,17 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import {
+  HiArrowPath,
+  HiBanknotes,
+  HiCheck,
+  HiClipboardDocumentCheck,
+  HiLink,
+  HiUserGroup,
+  HiUserPlus,
+  HiXMark,
+} from 'react-icons/hi2'
 import { api, ApiError, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
+import { EmptyState, ExecutiveHero, KpiStrip, SectionCard } from '../../components/ui/executive'
 import { formatAmount, formatId } from '../../i18n/format'
 
 type QueueRow = {
@@ -194,16 +205,36 @@ export function AdminHome() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Administracion escolar</h1>
+      <ExecutiveHero
+        eyebrow="Panel de administracion"
+        title="Control institucional"
+        subtitle="Supervisa decisiones finales, gestiona talento escolar y monitorea el historial de recompensas simuladas."
+      />
+      <KpiStrip
+        items={[
+          { label: 'Cola aprobacion', value: formatId(queue.length), hint: 'Validaciones por decidir' },
+          { label: 'Movimientos', value: formatId(history.length), hint: 'Transacciones registradas' },
+          {
+            label: 'Monto acumulado',
+            value: formatAmount(history.reduce((acc, row) => acc + row.amount, 0)),
+            hint: 'Recompensa simulada total',
+          },
+        ]}
+      />
 
       {error && <div className="alert alert-error">{error}</div>}
       {msg && <div className="alert alert-info text-sm">{msg}</div>}
 
-      <section className="card border border-base-300 bg-base-100 shadow-sm">
-        <div className="card-body">
-          <h2 className="card-title text-lg">Cola de aprobacion</h2>
+      <SectionCard
+        title="Cola de aprobacion"
+        subtitle="Ultimo control antes de registrar impacto en balance estudiantil."
+        titleIcon={<HiClipboardDocumentCheck aria-hidden />}
+      >
           {queue.length === 0 ? (
-            <p className="text-base-content/70">Sin envios validados pendientes.</p>
+            <EmptyState
+              title="Sin envios validados pendientes."
+              detail="El sistema mostrara aqui los casos listos para decision final."
+            />
           ) : (
             <div className="overflow-x-auto">
               <table className="table table-zebra table-sm">
@@ -243,10 +274,20 @@ export function AdminHome() {
                         {!s.evidenceText && !s.evidenceUrl ? <span className="text-base-content/50">—</span> : null}
                       </td>
                       <td className="flex flex-wrap gap-1">
-                        <button type="button" className="btn btn-primary btn-sm" onClick={() => approve(s.id)}>
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-sm gap-1"
+                          onClick={() => approve(s.id)}
+                        >
+                          <HiCheck className="h-4 w-4" aria-hidden />
                           Aprobar
                         </button>
-                        <button type="button" className="btn btn-outline btn-error btn-sm" onClick={() => setRejectId(s.id)}>
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-error btn-sm gap-1"
+                          onClick={() => setRejectId(s.id)}
+                        >
+                          <HiXMark className="h-4 w-4" aria-hidden />
                           Rechazar
                         </button>
                       </td>
@@ -256,8 +297,7 @@ export function AdminHome() {
               </table>
             </div>
           )}
-        </div>
-      </section>
+      </SectionCard>
 
       {rejectId !== null && (
         <section className="card border border-error/30 bg-base-100 shadow-sm">
@@ -290,9 +330,11 @@ export function AdminHome() {
         </section>
       )}
 
-      <section className="card border border-base-300 bg-base-100 shadow-sm">
-        <div className="card-body">
-          <h2 className="card-title text-lg">Alta de usuario</h2>
+      <SectionCard
+        title="Alta de usuario"
+        subtitle="Incorpora nuevos perfiles operativos dentro de tu institucion."
+        titleIcon={<HiUserPlus aria-hidden />}
+      >
           <form className="mt-2 grid max-w-xl gap-4" onSubmit={provisionUser}>
             <label className="form-control w-full">
               <div className="label pt-0">
@@ -348,12 +390,13 @@ export function AdminHome() {
               Crear
             </button>
           </form>
-        </div>
-      </section>
+      </SectionCard>
 
-      <section className="card border border-base-300 bg-base-100 shadow-sm">
-        <div className="card-body">
-          <h2 className="card-title text-lg">Reasignar rol</h2>
+      <SectionCard
+        title="Reasignar rol"
+        subtitle="Ajusta la responsabilidad operativa manteniendo control institucional."
+        titleIcon={<HiUserGroup aria-hidden />}
+      >
           <p className="text-sm text-base-content/70">Reemplaza los roles del usuario.</p>
           <form className="mt-2 grid max-w-xl gap-4" onSubmit={assignRoleSubmit}>
             <label className="form-control w-full">
@@ -387,12 +430,13 @@ export function AdminHome() {
               Guardar
             </button>
           </form>
-        </div>
-      </section>
+      </SectionCard>
 
-      <section className="card border border-base-300 bg-base-100 shadow-sm">
-        <div className="card-body">
-          <h2 className="card-title text-lg">Asociar docente y estudiante</h2>
+      <SectionCard
+        title="Asociar docente y estudiante"
+        subtitle="Define la supervision academica para un seguimiento mas preciso."
+        titleIcon={<HiLink aria-hidden />}
+      >
           <form className="mt-2 grid max-w-xl gap-4" onSubmit={linkTeacherStudent}>
             <label className="form-control w-full">
               <div className="label pt-0">
@@ -420,19 +464,21 @@ export function AdminHome() {
               Guardar
             </button>
           </form>
-        </div>
-      </section>
+      </SectionCard>
 
-      <section className="card border border-base-300 bg-base-100 shadow-sm">
-        <div className="card-body">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="card-title text-lg">Historial de recompensas</h2>
-            <button type="button" className="btn btn-outline btn-sm" onClick={() => load()}>
-              Actualizar
-            </button>
-          </div>
+      <SectionCard
+        title="Historial de recompensas"
+        subtitle="Bitacora institucional de movimientos y publicacion de incentivos."
+        actions={
+          <button type="button" className="btn btn-outline btn-sm gap-1" onClick={() => load()}>
+            <HiArrowPath className="h-4 w-4" aria-hidden />
+            Actualizar
+          </button>
+        }
+        titleIcon={<HiBanknotes aria-hidden />}
+      >
           {history.length === 0 ? (
-            <p className="text-base-content/70">Sin movimientos.</p>
+            <EmptyState title="Sin movimientos." detail="Las aprobaciones con recompensa apareceran en esta bitacora." />
           ) : (
             <div className="overflow-x-auto">
               <table className="table table-zebra table-sm">
@@ -461,8 +507,7 @@ export function AdminHome() {
               </table>
             </div>
           )}
-        </div>
-      </section>
+      </SectionCard>
     </div>
   )
 }

@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import {
+  HiArrowTopRightOnSquare,
+  HiClipboardDocumentList,
+  HiPaperAirplane,
+  HiQueueList,
+  HiWallet,
+} from 'react-icons/hi2'
 import { Link } from 'react-router-dom'
 import { api, ApiError, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
+import { EmptyState, ExecutiveHero, KpiStrip, SectionCard } from '../../components/ui/executive'
 import { formatAmount, formatId } from '../../i18n/format'
 
 type TaskRow = {
@@ -123,7 +131,18 @@ export function StudentHome() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight text-base-content">Estudiante</h1>
+      <ExecutiveHero
+        eyebrow="Panel estudiantil"
+        title="Mi avance academico"
+        subtitle="Gestiona evidencias, consulta estados canonicos y demuestra progreso verificable para docentes y administracion."
+      />
+      <KpiStrip
+        items={[
+          { label: 'Saldo simulado', value: formatAmount(balance?.simulatedBalance ?? 0), hint: 'Puntos disponibles' },
+          { label: 'Tareas activas', value: formatId(tasks.length), hint: 'Pendientes por completar' },
+          { label: 'Envios registrados', value: formatId(submissions.length), hint: 'Historial auditado' },
+        ]}
+      />
 
       {error && (
         <div role="alert" className="alert alert-error">
@@ -145,21 +164,24 @@ export function StudentHome() {
         </div>
       )}
 
-      <section className="card border border-base-300 bg-base-100 shadow-sm">
-        <div className="card-body">
-          <h2 className="card-title text-lg">Saldo simulado</h2>
+      <SectionCard
+        title="Saldo simulado"
+        subtitle="Indicador de impacto acumulado en la economia simulada institucional."
+        titleIcon={<HiWallet aria-hidden />}
+      >
           <p className="text-3xl font-semibold tabular-nums text-primary">
             {formatAmount(balance?.simulatedBalance ?? 0)}
           </p>
           <p className="text-sm text-base-content/70">Puntos (economia simulada)</p>
-        </div>
-      </section>
+      </SectionCard>
 
-      <section className="card border border-base-300 bg-base-100 shadow-sm">
-        <div className="card-body">
-          <h2 className="card-title text-lg">Tareas disponibles</h2>
+      <SectionCard
+        title="Tareas disponibles"
+        subtitle="Prioriza entregas activas para mantener ritmo de avance."
+        titleIcon={<HiClipboardDocumentList aria-hidden />}
+      >
           {tasks.length === 0 ? (
-            <p className="text-base-content/70">No hay tareas activas.</p>
+            <EmptyState title="No hay tareas activas." detail="Cuando un docente publique tareas, apareceran aqui." />
           ) : (
             <div className="overflow-x-auto">
               <table className="table table-zebra table-sm">
@@ -180,12 +202,13 @@ export function StudentHome() {
                       <td>
                         <button
                           type="button"
-                          className="btn btn-primary btn-sm"
+                          className="btn btn-primary btn-sm gap-1"
                           onClick={() => {
                             setSubmitTaskId(t.id)
                             setSubmitMsg(null)
                           }}
                         >
+                          <HiPaperAirplane className="h-4 w-4" aria-hidden />
                           Enviar evidencia
                         </button>
                       </td>
@@ -195,8 +218,7 @@ export function StudentHome() {
               </table>
             </div>
           )}
-        </div>
-      </section>
+      </SectionCard>
 
       {submitTaskId !== null && (
         <section className="card border border-base-300 bg-base-100 shadow-sm">
@@ -264,11 +286,16 @@ export function StudentHome() {
         </section>
       )}
 
-      <section className="card border border-base-300 bg-base-100 shadow-sm">
-        <div className="card-body">
-          <h2 className="card-title text-lg">Mis envios</h2>
+      <SectionCard
+        title="Mis envios"
+        subtitle="Vista consolidada para seguimiento de validaciones y decisiones."
+        titleIcon={<HiQueueList aria-hidden />}
+      >
           {submissions.length === 0 ? (
-            <p className="text-base-content/70">Aun no has enviado evidencias.</p>
+            <EmptyState
+              title="Aun no has enviado evidencias."
+              detail="Comienza con una tarea activa para crear tu primer registro."
+            />
           ) : (
             <div className="overflow-x-auto">
               <table className="table table-zebra table-sm">
@@ -294,9 +321,10 @@ export function StudentHome() {
                       </td>
                       <td>
                         <Link
-                          className="btn btn-outline btn-sm"
+                          className="btn btn-outline btn-sm gap-1"
                           to={`/student/submissions/${submission.id}`}
                         >
+                          <HiArrowTopRightOnSquare className="h-4 w-4" aria-hidden />
                           Ver detalle
                         </Link>
                       </td>
@@ -306,8 +334,7 @@ export function StudentHome() {
               </table>
             </div>
           )}
-        </div>
-      </section>
+      </SectionCard>
     </div>
   )
 }

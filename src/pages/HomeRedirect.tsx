@@ -1,3 +1,4 @@
+import { HiExclamationTriangle } from 'react-icons/hi2'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 
@@ -21,7 +22,10 @@ export function HomeRedirect() {
   return (
     <div className="card border border-base-300 bg-base-100 shadow-sm">
       <div className="card-body">
-        <h2 className="card-title">Sin rol asignado</h2>
+        <h2 className="card-title flex items-center gap-2">
+          <HiExclamationTriangle className="h-6 w-6 text-warning" aria-hidden />
+          Sin rol asignado
+        </h2>
         <p className="text-base-content/80">
           Tu cuenta no tiene un rol usable en la aplicacion. Contacta al administrador.
         </p>

@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
+import { HiArrowLeft, HiDocumentText, HiListBullet } from 'react-icons/hi2'
 import { Link, useParams } from 'react-router-dom'
 import { api, ApiError, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
+import { ExecutiveHero, SectionCard } from '../../components/ui/executive'
 import { formatId } from '../../i18n/format'
 
 type HistoryRow = {
@@ -79,15 +81,24 @@ export function SubmissionDetailPage() {
 
   return (
     <div className="space-y-6">
-      <Link className="link link-hover text-sm" to="/student">
-        Estudiante
-      </Link>
-      <h1 className="text-2xl font-semibold tracking-tight">Envio #{formatId(data.id)}</h1>
+      <ExecutiveHero
+        eyebrow="Trazabilidad de envio"
+        title={`Envio #${formatId(data.id)}`}
+        subtitle="Consulta evidencia, estado oficial y linea de decisiones para transparencia academica."
+        actions={
+          <Link className="btn btn-outline btn-sm gap-1" to="/student">
+            <HiArrowLeft className="h-4 w-4" aria-hidden />
+            Volver a estudiante
+          </Link>
+        }
+      />
 
-      <section className="card border border-base-300 bg-base-100 shadow-sm">
-        <div className="card-body">
+      <SectionCard
+        title="Detalle de evidencia"
+        subtitle={`Tarea #${formatId(data.taskId)}`}
+        titleIcon={<HiDocumentText aria-hidden />}
+      >
           <div className="badge badge-outline badge-lg border-primary/40 text-primary">{data.statusLabelEs}</div>
-          <p className="mt-3 text-sm text-base-content/70">Tarea #{formatId(data.taskId)}</p>
           <p className="mt-2 whitespace-pre-wrap text-base-content">{data.evidenceText}</p>
           {data.evidenceUrl && (
             <p className="mt-2">
@@ -97,12 +108,13 @@ export function SubmissionDetailPage() {
             </p>
           )}
           <p className="mt-4 text-xs text-base-content/60">Enviado: {data.submittedAt}</p>
-        </div>
-      </section>
+      </SectionCard>
 
-      <section className="card border border-base-300 bg-base-100 shadow-sm">
-        <div className="card-body">
-          <h2 className="card-title text-lg">Historial</h2>
+      <SectionCard
+        title="Historial"
+        subtitle="Secuencia cronologica de acciones sobre este envio."
+        titleIcon={<HiListBullet aria-hidden />}
+      >
           {data.history.length === 0 ? (
             <p className="text-base-content/70">Sin acciones aun.</p>
           ) : (
@@ -123,8 +135,7 @@ export function SubmissionDetailPage() {
               ))}
             </ul>
           )}
-        </div>
-      </section>
+      </SectionCard>
     </div>
   )
 }

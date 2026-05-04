@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import {
+  HiCheck,
+  HiClipboardDocumentList,
+  HiInboxStack,
+  HiLockClosed,
+  HiPlusCircle,
+  HiXMark,
+} from 'react-icons/hi2'
 import { api, ApiError, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
+import { EmptyState, ExecutiveHero, KpiStrip, SectionCard } from '../../components/ui/executive'
 import { formatId } from '../../i18n/format'
 import { TASK_STATUS_LABELS } from '../../i18n/es'
 
@@ -169,7 +178,22 @@ export function TeacherHome() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Docente</h1>
+      <ExecutiveHero
+        eyebrow="Panel docente"
+        title="Operacion de validacion"
+        subtitle="Crea retos, revisa evidencia estudiantil y asegura trazabilidad de cada decision pedagogica."
+      />
+      <KpiStrip
+        items={[
+          { label: 'Tareas propias', value: formatId(tasks.length), hint: 'Inventario actual' },
+          { label: 'Cola pendiente', value: formatId(queue.length), hint: 'Revision por completar' },
+          {
+            label: 'Tasa de cierre',
+            value: tasks.length > 0 ? `${Math.round((tasks.filter((t) => t.status !== 'active').length / tasks.length) * 100)}%` : '0%',
+            hint: 'Tareas finalizadas',
+          },
+        ]}
+      />
 
       {error && <div className="alert alert-error">{error}</div>}
       {actionMsg && (
@@ -178,9 +202,11 @@ export function TeacherHome() {
         </div>
       )}
 
-      <section className="card border border-base-300 bg-base-100 shadow-sm">
-        <div className="card-body">
-          <h2 className="card-title text-lg">Nueva tarea</h2>
+      <SectionCard
+        title="Nueva tarea"
+        subtitle="Define actividades con impacto medible y reglas claras de evaluacion."
+        titleIcon={<HiPlusCircle aria-hidden />}
+      >
           <form className="mt-2 grid max-w-xl gap-4" onSubmit={createTask}>
             <label className="form-control w-full">
               <div className="label pt-0">
@@ -246,14 +272,15 @@ export function TeacherHome() {
               Crear
             </button>
           </form>
-        </div>
-      </section>
+      </SectionCard>
 
-      <section className="card border border-base-300 bg-base-100 shadow-sm">
-        <div className="card-body">
-          <h2 className="card-title text-lg">Mis tareas</h2>
+      <SectionCard
+        title="Mis tareas"
+        subtitle="Portafolio de actividades bajo tu responsabilidad."
+        titleIcon={<HiClipboardDocumentList aria-hidden />}
+      >
           {tasks.length === 0 ? (
-            <p className="text-base-content/70">Ninguna.</p>
+            <EmptyState title="Aun no registras tareas." detail="Crea una tarea para iniciar el ciclo de evidencia." />
           ) : (
             <div className="overflow-x-auto">
               <table className="table table-zebra table-sm">
@@ -277,7 +304,12 @@ export function TeacherHome() {
                       </td>
                       <td>
                         {t.status === 'active' ? (
-                          <button type="button" className="btn btn-outline btn-sm" onClick={() => closeTask(t.id)}>
+                          <button
+                            type="button"
+                            className="btn btn-outline btn-sm gap-1"
+                            onClick={() => closeTask(t.id)}
+                          >
+                            <HiLockClosed className="h-4 w-4" aria-hidden />
                             Cerrar
                           </button>
                         ) : (
@@ -290,14 +322,15 @@ export function TeacherHome() {
               </table>
             </div>
           )}
-        </div>
-      </section>
+      </SectionCard>
 
-      <section className="card border border-base-300 bg-base-100 shadow-sm">
-        <div className="card-body">
-          <h2 className="card-title text-lg">Cola de validacion</h2>
+      <SectionCard
+        title="Cola de validacion"
+        subtitle="Revisa evidencia y emite dictamen para mantener integridad del flujo."
+        titleIcon={<HiInboxStack aria-hidden />}
+      >
           {queue.length === 0 ? (
-            <p className="text-base-content/70">Sin envios pendientes.</p>
+            <EmptyState title="Sin envios pendientes." detail="Cuando estudiantes envien evidencia, apareceran aqui." />
           ) : (
             <div className="overflow-x-auto">
               <table className="table table-zebra table-sm">
@@ -339,12 +372,18 @@ export function TeacherHome() {
                       <td className="flex flex-wrap gap-1">
                         <button
                           type="button"
-                          className="btn btn-primary btn-sm"
+                          className="btn btn-primary btn-sm gap-1"
                           onClick={() => validateSubmission(s.id)}
                         >
+                          <HiCheck className="h-4 w-4" aria-hidden />
                           Validar
                         </button>
-                        <button type="button" className="btn btn-outline btn-error btn-sm" onClick={() => setRejectId(s.id)}>
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-error btn-sm gap-1"
+                          onClick={() => setRejectId(s.id)}
+                        >
+                          <HiXMark className="h-4 w-4" aria-hidden />
                           Rechazar
                         </button>
                       </td>
@@ -354,8 +393,7 @@ export function TeacherHome() {
               </table>
             </div>
           )}
-        </div>
-      </section>
+      </SectionCard>
 
       {rejectId !== null && (
         <section className="card border border-error/30 bg-base-100 shadow-sm">

@@ -1,5 +1,8 @@
 import { useMemo, useState } from 'react'
+import { HiArrowUturnLeft, HiCheckBadge, HiDocumentText, HiSquares2X2 } from 'react-icons/hi2'
 import { Link } from 'react-router-dom'
+import { ScholarDiWordmark, ScholarFiWordmark } from '../components/BrandLogos'
+import { ExecutiveHero, KpiStrip, SectionCard } from '../components/ui/executive'
 import { CANONICAL_ES_COPY, type SubmissionStatusKey } from '../i18n/es'
 
 /** Epic 6 static demo dashboard (no API). */
@@ -17,30 +20,41 @@ export function DemoPage() {
 
   return (
     <main className="mx-auto max-w-6xl space-y-6 p-4 md:p-6" aria-label="ScholarFi Demo Dashboard">
-      <header className="hero overflow-hidden rounded-box border border-base-300 bg-gradient-to-br from-primary to-accent text-primary-content shadow-sm">
-        <div className="hero-content w-full flex-col items-start gap-4 p-6 md:p-8">
-          <Link to="/" className="link link-hover text-sm text-primary-content/90">
-            Volver a la app
-          </Link>
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">ScholarFi Demo Ops</h1>
-            <p className="mt-2 max-w-3xl text-sm text-primary-content/90 md:text-base">
-              {CANONICAL_ES_COPY.governanceTitle}
-            </p>
-          </div>
-          <span className="badge badge-outline border-primary-content/60 text-primary-content">
-            Sandbox visual
-          </span>
-        </div>
-      </header>
+      <ExecutiveHero
+        eyebrow="Escenario de inversion"
+        title="ScholarFi Demo Ops"
+        subtitle={CANONICAL_ES_COPY.governanceTitle}
+        leadingIcon={<ScholarFiWordmark className="h-10 w-auto max-w-[220px]" />}
+        actions={
+          <>
+            <Link to="/" className="btn btn-outline btn-sm gap-1">
+              <HiArrowUturnLeft className="h-4 w-4" aria-hidden />
+              Volver a la app
+            </Link>
+            <span className="badge badge-outline gap-2 px-2 py-1">
+              <ScholarDiWordmark className="h-5 w-auto max-w-[100px] object-contain" />
+              <span className="inline-flex items-center gap-1">
+                <HiSquares2X2 className="h-3.5 w-3.5" aria-hidden />
+                Sandbox visual
+              </span>
+            </span>
+          </>
+        }
+      />
+      <KpiStrip
+        items={[
+          { label: 'Estados canonicos', value: '5', hint: 'Definicion compartida' },
+          { label: 'Roles orquestados', value: '4', hint: 'Gobernanza activa' },
+          { label: 'Experiencia', value: 'MVP+', hint: 'Lista para demo ejecutiva' },
+        ]}
+      />
 
       <div className="grid gap-6 md:grid-cols-2">
-        <section className="card border border-base-300 bg-base-100 shadow-sm" aria-labelledby="status-catalog-title">
-          <div className="card-body">
-            <h2 id="status-catalog-title" className="card-title text-lg">
-              Catalogo canonico de estados
-            </h2>
-            <p className="text-sm text-base-content/70">{CANONICAL_ES_COPY.governanceHint}</p>
+        <SectionCard
+          title="Catalogo canonico de estados"
+          subtitle={CANONICAL_ES_COPY.governanceHint}
+          titleIcon={<HiSquares2X2 aria-hidden />}
+        >
             <div className="mt-2 grid gap-2 sm:grid-cols-2" aria-label="Estados de flujo disponibles">
               {statusEntries.map(([key, label]) => (
                 <button
@@ -57,15 +71,13 @@ export function DemoPage() {
                 </button>
               ))}
             </div>
-          </div>
-        </section>
+        </SectionCard>
 
-        <section className="card border border-base-300 bg-base-100 shadow-sm" aria-labelledby="submission-detail-title">
-          <div className="card-body">
-            <h2 id="submission-detail-title" className="card-title text-lg">
-              Detalle de envio
-            </h2>
-            <p className="text-sm text-base-content/70">Estado visible para estudiante, docente y administracion.</p>
+        <SectionCard
+          title="Detalle de envio"
+          subtitle="Estado visible para estudiante, docente y administracion."
+          titleIcon={<HiDocumentText aria-hidden />}
+        >
 
             <article className="mt-2 space-y-3 rounded-box border border-base-300 bg-base-200 p-4" aria-live="polite">
               <p className="text-xs text-base-content/60">Submission #24015</p>
@@ -87,23 +99,20 @@ export function DemoPage() {
                 </button>
               </div>
             </article>
-          </div>
-        </section>
+        </SectionCard>
       </div>
 
-      <section className="card border border-base-300 bg-base-100 shadow-sm" aria-labelledby="hardening-title">
-        <div className="card-body">
-          <h2 id="hardening-title" className="card-title text-lg">
-            Readiness de experiencia
-          </h2>
-          <p className="text-sm text-base-content/70">Checklist rapido para accesibilidad y responsive.</p>
+      <SectionCard
+        title="Readiness de experiencia"
+        subtitle="Checklist rapido para accesibilidad, consistencia y responsive."
+        titleIcon={<HiCheckBadge aria-hidden />}
+      >
           <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-base-content/90">
             <li>Focus visible en todos los botones y enlaces.</li>
             <li>Indicadores de estado por texto + icono, no solo color.</li>
             <li>Navegacion usable en `sm`, `md`, `lg` y `xl`.</li>
           </ul>
-        </div>
-      </section>
+      </SectionCard>
     </main>
   )
 }

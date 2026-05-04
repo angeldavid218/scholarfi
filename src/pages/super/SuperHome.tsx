@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import {
+  HiArrowPath,
+  HiBuildingOffice2,
+  HiPlusCircle,
+  HiPower,
+  HiUserPlus,
+} from 'react-icons/hi2'
 import { api, ApiError, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
+import { EmptyState, ExecutiveHero, KpiStrip, SectionCard } from '../../components/ui/executive'
 import { formatId } from '../../i18n/format'
 import { INSTITUTION_STATUS_LABELS } from '../../i18n/es'
 
@@ -112,23 +120,45 @@ export function SuperHome() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-semibold tracking-tight">Super administrador</h1>
+      <ExecutiveHero
+        eyebrow="Panel super admin"
+        title="Gobernanza multi-institucion"
+        subtitle="Configura instituciones, habilita operacion y asegura arranque controlado de cada sede."
+      />
+      <KpiStrip
+        items={[
+          { label: 'Instituciones', value: formatId(institutions.length), hint: 'Total registradas' },
+          {
+            label: 'Activas',
+            value: formatId(institutions.filter((institution) => institution.status === 'active').length),
+            hint: 'Operativas actualmente',
+          },
+          {
+            label: 'Borrador',
+            value: formatId(institutions.filter((institution) => institution.status === 'draft').length),
+            hint: 'Pendientes de activacion',
+          },
+        ]}
+      />
       {msg && <div className="alert alert-info text-sm">{msg}</div>}
 
-      <section className="card border border-base-300 bg-base-100 shadow-sm">
-        <div className="card-body">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="card-title text-lg">Instituciones</h2>
-            <button type="button" className="btn btn-outline btn-sm" onClick={() => loadInstitutions()}>
-              Actualizar
-            </button>
-          </div>
+      <SectionCard
+        title="Instituciones"
+        subtitle="Visibilidad ejecutiva del estado operativo por sede."
+        actions={
+          <button type="button" className="btn btn-outline btn-sm gap-1" onClick={() => loadInstitutions()}>
+            <HiArrowPath className="h-4 w-4" aria-hidden />
+            Actualizar
+          </button>
+        }
+        titleIcon={<HiBuildingOffice2 aria-hidden />}
+      >
           {loading ? (
             <div className="flex min-h-16 items-center">
               <span className="loading loading-spinner loading-sm" aria-label="Cargando" />
             </div>
           ) : institutions.length === 0 ? (
-            <p className="text-base-content/70">Sin instituciones.</p>
+            <EmptyState title="Sin instituciones." detail="Crea una institucion para comenzar el despliegue." />
           ) : (
             <div className="overflow-x-auto">
               <table className="table table-zebra table-sm">
@@ -157,12 +187,13 @@ export function SuperHome() {
               </table>
             </div>
           )}
-        </div>
-      </section>
+      </SectionCard>
 
-      <section className="card border border-base-300 bg-base-100 shadow-sm">
-        <div className="card-body">
-          <h2 className="card-title text-lg">Crear institucion (draft)</h2>
+      <SectionCard
+        title="Crear institucion (draft)"
+        subtitle="Da de alta nuevas sedes con codigo unico para control de despliegue."
+        titleIcon={<HiPlusCircle aria-hidden />}
+      >
           <form className="mt-2 grid max-w-xl gap-4" onSubmit={createInstitution}>
             <label className="form-control w-full">
               <div className="label pt-0">
@@ -192,12 +223,13 @@ export function SuperHome() {
               Crear
             </button>
           </form>
-        </div>
-      </section>
+      </SectionCard>
 
-      <section className="card border border-base-300 bg-base-100 shadow-sm">
-        <div className="card-body">
-          <h2 className="card-title text-lg">Activar / desactivar institucion</h2>
+      <SectionCard
+        title="Activar / desactivar institucion"
+        subtitle="Controla disponibilidad operativa y riesgo de cambios."
+        titleIcon={<HiPower aria-hidden />}
+      >
           <form className="mt-2 grid max-w-xl gap-4" onSubmit={patchStatus}>
             <label className="form-control w-full">
               <div className="label pt-0">
@@ -227,12 +259,13 @@ export function SuperHome() {
               Guardar
             </button>
           </form>
-        </div>
-      </section>
+      </SectionCard>
 
-      <section className="card border border-base-300 bg-base-100 shadow-sm">
-        <div className="card-body">
-          <h2 className="card-title text-lg">Bootstrap primer admin escolar</h2>
+      <SectionCard
+        title="Bootstrap primer admin escolar"
+        subtitle="Asigna custodio inicial para habilitar operacion local segura."
+        titleIcon={<HiUserPlus aria-hidden />}
+      >
           <form className="mt-2 grid max-w-xl gap-4" onSubmit={bootstrap}>
             <label className="form-control w-full">
               <div className="label pt-0">
@@ -285,8 +318,7 @@ export function SuperHome() {
               Crear admin
             </button>
           </form>
-        </div>
-      </section>
+      </SectionCard>
     </div>
   )
 }

@@ -66,6 +66,105 @@
   }
 }
 
+@layer components {
+  .sf-hero {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 1rem;
+    border: 1px solid color-mix(in oklab, var(--color-primary) 20%, var(--color-base-300));
+    border-radius: 1rem;
+    background: linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--color-primary) 12%, var(--color-base-100)),
+      color-mix(in oklab, var(--color-accent) 8%, var(--color-base-100))
+    );
+    padding: 1.25rem;
+    box-shadow: 0 8px 24px color-mix(in oklab, var(--color-primary) 14%, transparent);
+  }
+
+  .sf-eyebrow {
+    margin: 0 0 0.25rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: color-mix(in oklab, var(--color-base-content) 82%, var(--color-primary));
+  }
+
+  .sf-title {
+    margin: 0;
+    font-size: clamp(1.4rem, 2.1vw, 2rem);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--color-base-content);
+  }
+
+  .sf-subtitle {
+    margin: 0.35rem 0 0;
+    max-width: 68ch;
+    font-size: 0.95rem;
+    color: color-mix(in oklab, var(--color-base-content) 76%, var(--color-neutral));
+  }
+
+  .sf-hero-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .sf-kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .sf-kpi-item {
+    border: 1px solid color-mix(in oklab, var(--color-accent) 12%, var(--color-base-300));
+    border-radius: 0.85rem;
+    background: var(--color-base-100);
+    padding: 0.85rem;
+  }
+
+  .sf-kpi-label {
+    margin: 0;
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: color-mix(in oklab, var(--color-base-content) 72%, var(--color-neutral));
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .sf-kpi-value {
+    margin: 0.25rem 0 0;
+    font-size: 1.5rem;
+    line-height: 1.2;
+    font-weight: 700;
+    color: var(--color-base-content);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .sf-kpi-hint {
+    margin: 0.2rem 0 0;
+    font-size: 0.78rem;
+    color: color-mix(in oklab, var(--color-base-content) 68%, var(--color-neutral));
+  }
+
+  .sf-present main {
+    max-width: 1280px;
+    padding-top: 1.75rem;
+  }
+
+  .sf-present .card {
+    box-shadow: 0 10px 24px color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  }
+
+  .sf-present .table :where(th, td) {
+    padding-top: 0.7rem;
+    padding-bottom: 0.7rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
