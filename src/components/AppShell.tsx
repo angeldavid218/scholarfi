@@ -5,11 +5,12 @@ import {
   HiArrowRightOnRectangle,
   HiBars3,
   HiBuildingOffice2,
+  HiClipboardDocumentCheck,
   HiClipboardDocumentList,
   HiGlobeAlt,
   HiHome,
   HiInboxStack,
-  HiPresentationChartLine,
+  HiQueueList,
   HiRectangleGroup,
 } from 'react-icons/hi2'
 import { NavLink, Outlet } from 'react-router-dom'
@@ -30,13 +31,18 @@ type NavItem = { to: string; label: string; end?: boolean; Icon: IconType }
 export function AppShell() {
   const { profile, logout } = useAuth()
   const roles = profile?.roles ?? []
-  const [presentationMode, setPresentationMode] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   const principalItems: NavItem[] = [{ to: '/', label: 'Inicio', end: true, Icon: HiHome }]
 
   const panelItems: NavItem[] = [
-    ...(roles.includes('student') ? [{ to: '/student', label: 'Estudiante', Icon: HiAcademicCap } as NavItem] : []),
+    ...(roles.includes('student')
+      ? ([
+          { to: '/student', end: true, label: 'Resumen', Icon: HiAcademicCap },
+          { to: '/student/tareas', label: 'Tareas disponibles', Icon: HiClipboardDocumentList },
+          { to: '/student/envios', label: 'Mis envios', Icon: HiQueueList },
+        ] as NavItem[])
+      : []),
     ...(roles.includes('teacher')
       ? ([
           { to: '/teacher', end: true, label: 'Docente', Icon: HiClipboardDocumentList },
@@ -44,7 +50,10 @@ export function AppShell() {
         ] as NavItem[])
       : []),
     ...(roles.includes('school_admin')
-      ? [{ to: '/admin', label: 'Admin escolar', Icon: HiBuildingOffice2 } as NavItem]
+      ? ([
+          { to: '/admin', end: true, label: 'Admin escolar', Icon: HiBuildingOffice2 },
+          { to: '/admin/cola-aprobacion', label: 'Cola de aprobacion', Icon: HiClipboardDocumentCheck },
+        ] as NavItem[])
       : []),
     ...(roles.includes('super_admin') ? [{ to: '/super', label: 'Super admin', Icon: HiGlobeAlt } as NavItem] : []),
   ]
@@ -67,7 +76,7 @@ export function AppShell() {
   }
 
   return (
-    <div className={`flex min-h-svh flex-col ${presentationMode ? 'sf-present' : ''}`}>
+    <div className="flex min-h-svh flex-col sf-present">
       <header className="sticky top-0 z-30 border-b border-base-300 bg-base-100/95 shadow-sm backdrop-blur">
         <div className="flex items-center justify-between gap-2 px-3 py-3 sm:px-4">
           <div className="flex min-w-0 items-center gap-2">
@@ -98,17 +107,6 @@ export function AppShell() {
                 {roles[0].replace('_', ' ')}
               </span>
             ) : null}
-            <button
-              type="button"
-              className={`btn btn-sm gap-1 ${presentationMode ? 'btn-primary' : 'btn-ghost'}`}
-              onClick={() => setPresentationMode((current) => !current)}
-            >
-              <HiPresentationChartLine className="h-4 w-4 shrink-0" aria-hidden />
-              <span className="hidden sm:inline">
-                {presentationMode ? 'Vista estandar' : 'Modo presentacion'}
-              </span>
-              <span className="sm:hidden">Demo</span>
-            </button>
             <button
               type="button"
               className="btn btn-outline btn-primary btn-sm gap-1"

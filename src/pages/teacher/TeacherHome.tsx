@@ -7,8 +7,8 @@ import {
 import { api, ApiError, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
 import { EmptyState, ExecutiveHero, KpiStrip, SectionCard } from '../../components/ui/executive'
+import { CREDIT_TOKEN_NAME, TASK_STATUS_LABELS } from '../../i18n/es'
 import { formatId } from '../../i18n/format'
-import { TASK_STATUS_LABELS } from '../../i18n/es'
 
 type TaskRow = {
   id: number
@@ -163,7 +163,9 @@ export function TeacherHome() {
           </label>
           <label className="form-control w-full">
             <div className="label pt-0">
-              <span className="label-text">Recompensa (positiva)</span>
+              <span className="label-text">
+                {CREDIT_TOKEN_NAME} (por tarea, &gt; 0)
+              </span>
             </div>
             <input
               type="number"

@@ -10,6 +10,14 @@ export type SubmissionStatusKey = (typeof SUBMISSION_STATUS_KEYS)[number]
 export type TaskStatusKey = 'active' | 'closed'
 export type InstitutionStatusKey = 'draft' | 'active' | 'inactive'
 
+/** English name of the program unit of account (students earn Credits). */
+export const CREDIT_TOKEN_NAME = 'Credit'
+
+export const CREDITS_COPY = {
+  unitLower: 'créditos',
+  unitTitle: 'Créditos',
+} as const
+
 export const CANONICAL_ES_COPY: {
   governanceTitle: string
   governanceHint: string
@@ -30,7 +38,7 @@ export const CANONICAL_ES_COPY: {
     pending: 'Esperando revision inicial del docente asignado.',
     validated: 'Lista para decision final de administracion escolar.',
     rejected_by_teacher: 'La evidencia fue rechazada por docente con comentario.',
-    approved: 'Aprobada para publicacion de recompensa simulada.',
+    approved: 'Aprobada: listo para acreditar Credit en la cuenta del estudiante.',
     rejected_by_admin: 'Rechazada en control final de administracion escolar.',
   },
   statusIcons: {

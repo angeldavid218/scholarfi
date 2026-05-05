@@ -1,73 +1,29 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import {
-  HiArrowTopRightOnSquare,
-  HiClipboardDocumentList,
-  HiPaperAirplane,
-  HiQueueList,
-  HiWallet,
-} from 'react-icons/hi2'
-import { Link } from 'react-router-dom'
+import { useCallback, useEffect, useState } from 'react'
+import { HiWallet } from 'react-icons/hi2'
 import { api, ApiError, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
-import { EmptyState, ExecutiveHero, KpiStrip, SectionCard } from '../../components/ui/executive'
+import { KpiStrip } from '../../components/ui/executive'
+import { CREDIT_TOKEN_NAME } from '../../i18n/es'
 import { formatAmount, formatId } from '../../i18n/format'
 
-type TaskRow = {
-  id: number
-  title: string
-  description: string
-  rewardAmount: number
-  dueAt: string | null
-  status: string
-}
+type TaskRow = { id: number }
+type SubmissionRow = { id: number }
 
 type Balance = {
   simulatedBalance: number
   institutionId: number | null
 }
 
-type SubmissionRow = {
-  id: number
-  taskId: number
-  status: string
-  statusLabelEs: string
-  submittedAt: string
-}
-
-function formatRelativeDate(value: string): string {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  const diffMs = date.getTime() - Date.now()
-  const minute = 60 * 1000
-  const hour = 60 * minute
-  const day = 24 * hour
-  const rtf = new Intl.RelativeTimeFormat('es', { numeric: 'auto' })
-  if (Math.abs(diffMs) < hour) return rtf.format(Math.round(diffMs / minute), 'minute')
-  if (Math.abs(diffMs) < day) return rtf.format(Math.round(diffMs / hour), 'hour')
-  return rtf.format(Math.round(diffMs / day), 'day')
-}
-
-function statusBadgeClass(status: string): string {
-  if (status === 'approved') return 'badge badge-success badge-sm'
-  if (status === 'rejected_by_teacher' || status === 'rejected_by_admin') return 'badge badge-error badge-sm'
-  if (status === 'validated') return 'badge badge-info badge-sm'
-  return 'badge badge-warning badge-sm'
-}
-
+/**
+ * Resumen del estudiante: metricas (KPI) y saldo en Credit (créditos). Tareas y envios en rutas dedicadas.
+ */
 export function StudentHome() {
   const { token } = useAuth()
   const [balance, setBalance] = useState<Balance | null>(null)
-  const [tasks, setTasks] = useState<TaskRow[]>([])
-  const [submissions, setSubmissions] = useState<SubmissionRow[]>([])
+  const [taskCount, setTaskCount] = useState(0)
+  const [submissionCount, setSubmissionCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-
-  const [submitTaskId, setSubmitTaskId] = useState<number | null>(null)
-  const [evidenceText, setEvidenceText] = useState('')
-  const [evidenceUrl, setEvidenceUrl] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [submitMsg, setSubmitMsg] = useState<string | null>(null)
-  const [lastCreatedId, setLastCreatedId] = useState<number | null>(null)
 
   const load = useCallback(async () => {
     if (!token) return
@@ -80,8 +36,8 @@ export function StudentHome() {
         api.get<SubmissionRow[]>('/submissions', { token }),
       ])
       setBalance(b)
-      setTasks(Array.isArray(t) ? t : [])
-      setSubmissions(Array.isArray(s) ? s : [])
+      setTaskCount(Array.isArray(t) ? t.length : 0)
+      setSubmissionCount(Array.isArray(s) ? s.length : 0)
     } catch (e) {
       setError(e instanceof ApiError ? getApiErrorMessage(e.body) : 'Error al cargar')
     } finally {
@@ -93,34 +49,6 @@ export function StudentHome() {
     load()
   }, [load])
 
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault()
-    if (!token || !submitTaskId) return
-    setSubmitting(true)
-    setSubmitMsg(null)
-    try {
-      const body: { taskId: number; evidenceText: string; evidenceUrl?: string } = {
-        taskId: submitTaskId,
-        evidenceText: evidenceText.trim(),
-      }
-      const url = evidenceUrl.trim()
-      if (url) body.evidenceUrl = url
-      const created = await api.post<{ id: number }>('/submissions', { json: body, token })
-      setLastCreatedId(created.id)
-      setSubmitMsg('Enviado correctamente.')
-      setEvidenceText('')
-      setEvidenceUrl('')
-      setSubmitTaskId(null)
-      await load()
-    } catch (err) {
-      setSubmitMsg(
-        err instanceof ApiError ? getApiErrorMessage(err.body) : 'No se pudo enviar la evidencia'
-      )
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
   if (loading) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
@@ -129,212 +57,72 @@ export function StudentHome() {
     )
   }
 
+  const creditsBalance = balance?.simulatedBalance ?? 0
+
   return (
     <div className="space-y-6">
-      <ExecutiveHero
-        eyebrow="Panel estudiantil"
-        title="Mi avance academico"
-        subtitle="Gestiona evidencias, consulta estados canonicos y demuestra progreso verificable para docentes y administracion."
-      />
-      <KpiStrip
-        items={[
-          { label: 'Saldo simulado', value: formatAmount(balance?.simulatedBalance ?? 0), hint: 'Puntos disponibles' },
-          { label: 'Tareas activas', value: formatId(tasks.length), hint: 'Pendientes por completar' },
-          { label: 'Envios registrados', value: formatId(submissions.length), hint: 'Historial auditado' },
-        ]}
-      />
-
       {error && (
         <div role="alert" className="alert alert-error">
           {error}
         </div>
       )}
 
-      {lastCreatedId !== null && (
-        <div className="alert alert-success flex flex-wrap items-center justify-between gap-2">
-          <span>
-            Ultimo envio:{' '}
-            <Link className="link font-semibold" to={`/student/submissions/${lastCreatedId}`}>
-              #{lastCreatedId}
-            </Link>
-          </span>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setLastCreatedId(null)}>
-            Cerrar
-          </button>
-        </div>
-      )}
-
-      <SectionCard
-        title="Saldo simulado"
-        subtitle="Indicador de impacto acumulado en la economia simulada institucional."
-        titleIcon={<HiWallet aria-hidden />}
+      <section
+        className="relative overflow-hidden rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/[0.14] via-base-100 to-base-200 p-6 shadow-[0_18px_42px_-14px_color-mix(in_oklab,var(--color-primary)_38%,transparent)] md:p-8"
+        aria-labelledby="student-credits-heading"
       >
-          <p className="text-3xl font-semibold tabular-nums text-primary">
-            {formatAmount(balance?.simulatedBalance ?? 0)}
-          </p>
-          <p className="text-sm text-base-content/70">Puntos (economia simulada)</p>
-      </SectionCard>
-
-      <SectionCard
-        title="Tareas disponibles"
-        subtitle="Prioriza entregas activas para mantener ritmo de avance."
-        titleIcon={<HiClipboardDocumentList aria-hidden />}
-      >
-          {tasks.length === 0 ? (
-            <EmptyState title="No hay tareas activas." detail="Cuando un docente publique tareas, apareceran aqui." />
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="table table-zebra table-sm">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Titulo</th>
-                    <th>Recompensa</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {tasks.map((t) => (
-                    <tr key={t.id}>
-                      <th>{formatId(t.id)}</th>
-                      <td>{t.title}</td>
-                      <td>{formatAmount(t.rewardAmount)}</td>
-                      <td>
-                        <button
-                          type="button"
-                          className="btn btn-primary btn-sm gap-1"
-                          onClick={() => {
-                            setSubmitTaskId(t.id)
-                            setSubmitMsg(null)
-                          }}
-                        >
-                          <HiPaperAirplane className="h-4 w-4" aria-hidden />
-                          Enviar evidencia
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+        <div
+          className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-primary/15 blur-3xl"
+          aria-hidden
+        />
+        <div className="relative flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+          <div className="min-w-0 flex-1 space-y-3">
+            <p className="sf-eyebrow m-0">Panel estudiantil</p>
+            <div>
+              <h1 id="student-credits-heading" className="m-0 text-lg font-semibold tracking-tight text-base-content md:text-xl">
+                Tus créditos
+              </h1>
+              <p className="mt-1 max-w-prose text-sm text-base-content/75">
+                Ganas <span className="font-semibold text-primary">{CREDIT_TOKEN_NAME}</span> al completar tareas y recibir
+                la aprobación final; aquí ves tu acumulado en la institución.
+              </p>
             </div>
-          )}
-      </SectionCard>
-
-      {submitTaskId !== null && (
-        <section className="card border border-base-300 bg-base-100 shadow-sm">
-          <div className="card-body">
-            <h2 className="card-title text-lg">Nuevo envio (tarea #{submitTaskId})</h2>
-            <form className="mt-2 flex max-w-lg flex-col gap-4" onSubmit={onSubmit}>
-              <label className="form-control w-full">
-                <div className="label pt-0">
-                  <span className="label-text">Evidencia (texto)</span>
-                </div>
-                <textarea
-                  value={evidenceText}
-                  onChange={(e) => setEvidenceText(e.target.value)}
-                  className="textarea textarea-bordered min-h-28 w-full"
-                  required
-                  minLength={2}
-                />
-              </label>
-              <label className="form-control w-full">
-                <div className="label pt-0">
-                  <span className="label-text">URL evidencia (opcional)</span>
-                </div>
-                <input
-                  type="url"
-                  value={evidenceUrl}
-                  onChange={(e) => setEvidenceUrl(e.target.value)}
-                  placeholder="https://…"
-                  className="input input-bordered w-full"
-                />
-              </label>
-              {submitMsg && (
-                <div
-                  role="status"
-                  className={
-                    submitMsg.includes('correctamente') ? 'alert alert-success text-sm' : 'alert alert-error text-sm'
-                  }
-                >
-                  {submitMsg}
-                </div>
-              )}
-              <div className="card-actions justify-end gap-2">
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  onClick={() => {
-                    setSubmitTaskId(null)
-                    setSubmitMsg(null)
-                  }}
-                >
-                  Cancelar
-                </button>
-                <button type="submit" className="btn btn-primary" disabled={submitting}>
-                  {submitting ? (
-                    <>
-                      <span className="loading loading-spinner loading-sm" />
-                      Enviando…
-                    </>
-                  ) : (
-                    'Enviar'
-                  )}
-                </button>
-              </div>
-            </form>
+            <p
+              className="break-words text-4xl font-bold tabular-nums tracking-tight text-primary md:text-5xl"
+              aria-live="polite"
+            >
+              {formatAmount(creditsBalance)}
+            </p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-base-content/55">
+              Unidad <span className="text-primary">{CREDIT_TOKEN_NAME}</span>
+              <span className="mx-1.5 font-normal text-base-content/45">·</span>
+              <span className="font-normal normal-case tracking-normal text-sm text-base-content/70">
+                Créditos disponibles en tu cuenta
+              </span>
+            </p>
           </div>
-        </section>
-      )}
+          <div
+            className="flex shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-base-100/80 p-5 shadow-inner md:self-stretch"
+            aria-hidden
+          >
+            <HiWallet className="h-14 w-14 text-primary md:h-16 md:w-16" />
+          </div>
+        </div>
+      </section>
 
-      <SectionCard
-        title="Mis envios"
-        subtitle="Vista consolidada para seguimiento de validaciones y decisiones."
-        titleIcon={<HiQueueList aria-hidden />}
-      >
-          {submissions.length === 0 ? (
-            <EmptyState
-              title="Aun no has enviado evidencias."
-              detail="Comienza con una tarea activa para crear tu primer registro."
-            />
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="table table-zebra table-sm">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Tarea</th>
-                    <th>Estado</th>
-                    <th>Enviado</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {submissions.map((submission) => (
-                    <tr key={submission.id}>
-                      <th>{formatId(submission.id)}</th>
-                      <td>{formatId(submission.taskId)}</td>
-                      <td>
-                        <span className={statusBadgeClass(submission.status)}>{submission.statusLabelEs}</span>
-                      </td>
-                      <td className="whitespace-nowrap text-xs text-base-content/70">
-                        <span title={submission.submittedAt}>{formatRelativeDate(submission.submittedAt)}</span>
-                      </td>
-                      <td>
-                        <Link
-                          className="btn btn-outline btn-sm gap-1"
-                          to={`/student/submissions/${submission.id}`}
-                        >
-                          <HiArrowTopRightOnSquare className="h-4 w-4" aria-hidden />
-                          Ver detalle
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-      </SectionCard>
+      <div className="space-y-2">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-base-content/60">Actividad</h2>
+        <KpiStrip
+          items={[
+            { label: 'Tareas activas', value: formatId(taskCount), hint: 'Pendientes por completar' },
+            { label: 'Envios registrados', value: formatId(submissionCount), hint: 'Historial auditado' },
+          ]}
+        />
+        <p className="text-xs text-base-content/55">
+          Para sumar créditos, entrega evidencias en <span className="font-medium text-base-content/70">Tareas disponibles</span>
+          . Consulta resultados en <span className="font-medium text-base-content/70">Mis envios</span>.
+        </p>
+      </div>
     </div>
   )
 }

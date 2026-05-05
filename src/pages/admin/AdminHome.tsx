@@ -1,30 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import {
-  HiArrowPath,
-  HiBanknotes,
-  HiCheck,
-  HiClipboardDocumentCheck,
-  HiLink,
-  HiUserGroup,
-  HiUserPlus,
-  HiXMark,
-} from 'react-icons/hi2'
+import { HiArrowPath, HiBanknotes, HiLink, HiUserGroup, HiUserPlus } from 'react-icons/hi2'
 import { api, ApiError, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
 import { EmptyState, ExecutiveHero, KpiStrip, SectionCard } from '../../components/ui/executive'
-import { formatAmount, formatId } from '../../i18n/format'
-
-type QueueRow = {
-  id: number
-  taskId: number
-  taskTitle: string
-  studentId: number
-  evidenceText: string | null
-  evidenceUrl: string | null
-  status: string
-  statusLabelEs: string
-  submittedAt: string
-}
+import { formatCreditsWithUnit, formatId } from '../../i18n/format'
 
 type RewardRow = {
   id: number
@@ -48,23 +27,12 @@ function formatRelativeDate(value: string | null): string {
   return rtf.format(Math.round(diffMs / day), 'day')
 }
 
-function statusBadgeClass(status: string): string {
-  if (status === 'validated') return 'badge badge-info badge-sm'
-  if (status === 'approved') return 'badge badge-success badge-sm'
-  if (status === 'rejected_by_admin' || status === 'rejected_by_teacher') return 'badge badge-error badge-sm'
-  return 'badge badge-ghost badge-sm'
-}
-
 export function AdminHome() {
   const { token } = useAuth()
-  const [queue, setQueue] = useState<QueueRow[]>([])
   const [history, setHistory] = useState<RewardRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
-
-  const [rejectId, setRejectId] = useState<number | null>(null)
-  const [rejectReason, setRejectReason] = useState('')
 
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
@@ -82,11 +50,7 @@ export function AdminHome() {
     setError(null)
     setLoading(true)
     try {
-      const [q, h] = await Promise.all([
-        api.get<QueueRow[]>('/submissions/admin-queue', { token }),
-        api.get<RewardRow[]>('/rewards/history', { token }),
-      ])
-      setQueue(Array.isArray(q) ? q : [])
+      const h = await api.get<RewardRow[]>('/rewards/history', { token })
       setHistory(Array.isArray(h) ? h : [])
     } catch (e) {
       setError(e instanceof ApiError ? getApiErrorMessage(e.body) : 'Error al cargar')
@@ -98,39 +62,6 @@ export function AdminHome() {
   useEffect(() => {
     load()
   }, [load])
-
-  async function approve(id: number) {
-    if (!token) return
-    setMsg(null)
-    try {
-      await api.patch(`/submissions/${id}/admin-decision`, {
-        json: { decision: 'approve' },
-        token,
-      })
-      setMsg(`Envio ${id} aprobado (recompensa registrada si aplica).`)
-      await load()
-    } catch (err) {
-      setMsg(err instanceof ApiError ? getApiErrorMessage(err.body) : 'Error')
-    }
-  }
-
-  async function submitReject(e: FormEvent) {
-    e.preventDefault()
-    if (!token || rejectId === null) return
-    setMsg(null)
-    try {
-      await api.patch(`/submissions/${rejectId}/admin-decision`, {
-        json: { decision: 'reject', reason: rejectReason.trim() },
-        token,
-      })
-      setMsg(`Envio ${rejectId} rechazado por administracion.`)
-      setRejectId(null)
-      setRejectReason('')
-      await load()
-    } catch (err) {
-      setMsg(err instanceof ApiError ? getApiErrorMessage(err.body) : 'Error')
-    }
-  }
 
   async function provisionUser(e: FormEvent) {
     e.preventDefault()
@@ -208,127 +139,22 @@ export function AdminHome() {
       <ExecutiveHero
         eyebrow="Panel de administracion"
         title="Control institucional"
-        subtitle="Supervisa decisiones finales, gestiona talento escolar y monitorea el historial de recompensas simuladas."
+        subtitle="Supervisa decisiones finales, gestiona talento escolar y monitorea el flujo de Credit hacia las cuentas estudiantiles."
       />
       <KpiStrip
         items={[
-          { label: 'Cola aprobacion', value: formatId(queue.length), hint: 'Validaciones por decidir' },
+          { label: 'Cola aprobacion', value: 'Ver modulo', hint: 'Seccion dedicada en sidebar' },
           { label: 'Movimientos', value: formatId(history.length), hint: 'Transacciones registradas' },
           {
-            label: 'Monto acumulado',
-            value: formatAmount(history.reduce((acc, row) => acc + row.amount, 0)),
-            hint: 'Recompensa simulada total',
+            label: 'Créditos acumulados',
+            value: formatCreditsWithUnit(history.reduce((acc, row) => acc + row.amount, 0)),
+            hint: 'Total de Credit publicado en el historial',
           },
         ]}
       />
 
       {error && <div className="alert alert-error">{error}</div>}
       {msg && <div className="alert alert-info text-sm">{msg}</div>}
-
-      <SectionCard
-        title="Cola de aprobacion"
-        subtitle="Ultimo control antes de registrar impacto en balance estudiantil."
-        titleIcon={<HiClipboardDocumentCheck aria-hidden />}
-      >
-          {queue.length === 0 ? (
-            <EmptyState
-              title="Sin envios validados pendientes."
-              detail="El sistema mostrara aqui los casos listos para decision final."
-            />
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="table table-zebra table-sm">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Tarea</th>
-                    <th>Estudiante</th>
-                    <th>Estado</th>
-                    <th>Evidencia</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {queue.map((s) => (
-                    <tr key={s.id}>
-                      <th>{formatId(s.id)}</th>
-                      <td>{s.taskTitle}</td>
-                      <td>{formatId(s.studentId)}</td>
-                      <td>
-                        <span className={statusBadgeClass(s.status)}>{s.statusLabelEs}</span>
-                      </td>
-                      <td className="max-w-xs align-top text-xs">
-                        {s.evidenceText ? (
-                          <p className="line-clamp-3 whitespace-pre-wrap break-words">{s.evidenceText}</p>
-                        ) : null}
-                        {s.evidenceUrl ? (
-                          <a
-                            href={s.evidenceUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="link link-primary block truncate pt-1"
-                          >
-                            Enlace
-                          </a>
-                        ) : null}
-                        {!s.evidenceText && !s.evidenceUrl ? <span className="text-base-content/50">—</span> : null}
-                      </td>
-                      <td className="flex flex-wrap gap-1">
-                        <button
-                          type="button"
-                          className="btn btn-primary btn-sm gap-1"
-                          onClick={() => approve(s.id)}
-                        >
-                          <HiCheck className="h-4 w-4" aria-hidden />
-                          Aprobar
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-outline btn-error btn-sm gap-1"
-                          onClick={() => setRejectId(s.id)}
-                        >
-                          <HiXMark className="h-4 w-4" aria-hidden />
-                          Rechazar
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-      </SectionCard>
-
-      {rejectId !== null && (
-        <section className="card border border-error/30 bg-base-100 shadow-sm">
-          <div className="card-body">
-            <h2 className="card-title text-lg text-error">Rechazo admin (envio #{rejectId})</h2>
-            <form className="mt-2 flex max-w-xl flex-col gap-4" onSubmit={submitReject}>
-              <label className="form-control w-full">
-                <div className="label pt-0">
-                  <span className="label-text">Razon</span>
-                </div>
-                <textarea
-                  value={rejectReason}
-                  onChange={(e) => setRejectReason(e.target.value)}
-                  required
-                  minLength={2}
-                  rows={3}
-                  className="textarea textarea-bordered w-full"
-                />
-              </label>
-              <div className="card-actions justify-end gap-2">
-                <button type="button" className="btn btn-ghost" onClick={() => setRejectId(null)}>
-                  Cancelar
-                </button>
-                <button type="submit" className="btn btn-error">
-                  Confirmar
-                </button>
-              </div>
-            </form>
-          </div>
-        </section>
-      )}
 
       <SectionCard
         title="Alta de usuario"
@@ -467,8 +293,8 @@ export function AdminHome() {
       </SectionCard>
 
       <SectionCard
-        title="Historial de recompensas"
-        subtitle="Bitacora institucional de movimientos y publicacion de incentivos."
+        title="Historial de créditos"
+        subtitle="Bitácora institucional de movimientos y publicación de Credit al estudiante."
         actions={
           <button type="button" className="btn btn-outline btn-sm gap-1" onClick={() => load()}>
             <HiArrowPath className="h-4 w-4" aria-hidden />
@@ -478,7 +304,7 @@ export function AdminHome() {
         titleIcon={<HiBanknotes aria-hidden />}
       >
           {history.length === 0 ? (
-            <EmptyState title="Sin movimientos." detail="Las aprobaciones con recompensa apareceran en esta bitacora." />
+            <EmptyState title="Sin movimientos." detail="Las aprobaciones que liberan Credit aparecerán en esta bitácora." />
           ) : (
             <div className="overflow-x-auto">
               <table className="table table-zebra table-sm">
@@ -487,7 +313,7 @@ export function AdminHome() {
                     <th>ID</th>
                     <th>Envio</th>
                     <th>Estudiante</th>
-                    <th>Monto</th>
+                    <th>Créditos</th>
                     <th>Publicado</th>
                   </tr>
                 </thead>
@@ -497,7 +323,7 @@ export function AdminHome() {
                       <th>{formatId(r.id)}</th>
                       <td>{formatId(r.submissionId)}</td>
                       <td>{formatId(r.studentId)}</td>
-                      <td className="font-medium tabular-nums text-secondary">{formatAmount(r.amount)}</td>
+                      <td className="font-medium tabular-nums text-secondary">{formatCreditsWithUnit(r.amount)}</td>
                       <td className="text-xs text-base-content/70">
                         <span title={r.postedAt ?? undefined}>{formatRelativeDate(r.postedAt)}</span>
                       </td>

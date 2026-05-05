@@ -57,7 +57,7 @@ export function LoginPage() {
       <aside className="relative flex min-h-[46vh] flex-col justify-center overflow-hidden border-b border-white/10 bg-primary px-8 py-10 text-primary-content sm:px-10 lg:min-h-svh lg:border-b-0 lg:border-r lg:py-14">
         {/* Background: ScholarFi wordmark only as oversized watermark — no photo */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
-          <ScholarFiWordmark className="absolute left-1/2 top-1/2 h-[min(78vh,32rem)] w-auto max-w-[min(145vw,52rem)] -translate-x-1/2 -translate-y-1/2 rotate-[-7deg] object-contain opacity-[0.14] brightness-0 invert" />
+          <ScholarFiWordmark className="absolute left-1/2 top-1/2 h-[min(78vh,32rem)] w-auto max-w-[min(145vw,52rem)] -translate-x-1/2 -translate-y-1/2  object-contain opacity-[0.14] brightness-0 invert" />
         </div>
         <div
           className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-base-content/20 via-transparent to-base-content/15"
@@ -70,7 +70,7 @@ export function LoginPage() {
               Libro mayor del merito escolar
             </h1>
             <p className="mt-4 max-w-md text-sm leading-relaxed text-primary-content/95">
-              Gobernanza clara, colas de validacion y recompensa simulada — sin ruido de cadena. Accede con tu cuenta
+              Gobernanza clara, colas de validacion y Credit para los estudiantes — sin ruido de cadena. Accede con tu cuenta
               institucional.
             </p>
             <div className="mt-6 rounded-box border border-white/15 bg-base-content/10 p-4 backdrop-blur-[2px]">
