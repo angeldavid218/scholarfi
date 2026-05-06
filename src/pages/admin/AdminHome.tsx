@@ -1,13 +1,32 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { HiLink, HiUserGroup, HiUserPlus } from 'react-icons/hi2'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import { HiMagnifyingGlass, HiUserGroup, HiUserPlus, HiUsers } from 'react-icons/hi2'
 import { api, ApiError, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
-import { ExecutiveHero, KpiStrip, SectionCard } from '../../components/ui/executive'
+import { EmptyState, ExecutiveHero, KpiStrip, SectionCard } from '../../components/ui/executive'
+import { TablePagination } from '../../components/ui/TablePagination'
 import { formatCreditsWithUnit, formatId } from '../../i18n/format'
+import type { PaginatedMeta, PaginatedPayload } from '../../types'
 
 type HistorySummary = {
   transactionCount: number
   creditsTotal: number
+}
+
+type RosterRow = {
+  id: number
+  email: string
+  fullName: string | null
+  roles: string[]
+}
+
+function formatRolesEs(roles: string[]): string {
+  const map: Record<string, string> = {
+    student: 'Estudiante',
+    teacher: 'Docente',
+    school_admin: 'Admin escolar',
+  }
+  if (!roles.length) return '—'
+  return roles.map((r) => map[r] ?? r.replace(/_/g, ' ')).join(', ')
 }
 
 export function AdminHome() {
@@ -17,6 +36,16 @@ export function AdminHome() {
   const [error, setError] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
 
+  const [searchInput, setSearchInput] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [roster, setRoster] = useState<RosterRow[]>([])
+  const [rosterMeta, setRosterMeta] = useState<PaginatedMeta | null>(null)
+  const [rosterPage, setRosterPage] = useState(1)
+  const [rosterPerPage, setRosterPerPage] = useState(10)
+  const [tableBusy, setTableBusy] = useState(false)
+  const [refreshNonce, setRefreshNonce] = useState(0)
+  const firstLoadDone = useRef(false)
+
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -25,26 +54,67 @@ export function AdminHome() {
   const [assignUserId, setAssignUserId] = useState('')
   const [assignRole, setAssignRole] = useState<'teacher' | 'student' | 'school_admin'>('teacher')
 
-  const [teacherId, setTeacherId] = useState('')
-  const [studentId, setStudentId] = useState('')
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedSearch(searchInput.trim()), 300)
+    return () => window.clearTimeout(t)
+  }, [searchInput])
 
-  const load = useCallback(async () => {
-    if (!token) return
-    setError(null)
-    setLoading(true)
-    try {
-      const s = await api.get<HistorySummary>('/rewards/history/summary', { token })
-      setSummary(s)
-    } catch (e) {
-      setError(e instanceof ApiError ? getApiErrorMessage(e.body) : 'Error al cargar')
-    } finally {
-      setLoading(false)
-    }
+  useEffect(() => {
+    setRosterPage(1)
+  }, [debouncedSearch])
+
+  useEffect(() => {
+    firstLoadDone.current = false
+    setRefreshNonce(0)
   }, [token])
 
   useEffect(() => {
-    load()
-  }, [load])
+    if (!token) {
+      setLoading(false)
+      setSummary(null)
+      setRoster([])
+      setRosterMeta(null)
+      return
+    }
+    let cancelled = false
+    const run = async () => {
+      const showFullSpinner = !firstLoadDone.current
+      if (showFullSpinner) setLoading(true)
+      else setTableBusy(true)
+      setError(null)
+      try {
+        const params = new URLSearchParams({
+          page: String(rosterPage),
+          perPage: String(rosterPerPage),
+        })
+        if (debouncedSearch) params.set('search', debouncedSearch)
+        const [s, r] = await Promise.all([
+          api.get<HistorySummary>('/rewards/history/summary', { token }),
+          api.get<PaginatedPayload<RosterRow>>(`/institutions/users?${params}`, { token }),
+        ])
+        if (cancelled) return
+        setSummary(s)
+        setRoster(r.items)
+        setRosterMeta(r.meta)
+        firstLoadDone.current = true
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof ApiError ? getApiErrorMessage(e.body) : 'Error al cargar')
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+          setTableBusy(false)
+        }
+      }
+    }
+    void run()
+    return () => {
+      cancelled = true
+    }
+  }, [token, rosterPage, rosterPerPage, debouncedSearch, refreshNonce])
+
+  const bumpRoster = useCallback(() => setRefreshNonce((n) => n + 1), [])
 
   async function provisionUser(e: FormEvent) {
     e.preventDefault()
@@ -64,6 +134,7 @@ export function AdminHome() {
       setFullName('')
       setEmail('')
       setPassword('')
+      bumpRoster()
     } catch (err) {
       setMsg(err instanceof ApiError ? getApiErrorMessage(err.body) : 'Error')
     }
@@ -81,29 +152,7 @@ export function AdminHome() {
     try {
       await api.patch(`/institutions/users/${uid}/role`, { json: { role: assignRole }, token })
       setMsg(`Rol actualizado para usuario ${uid}.`)
-    } catch (err) {
-      setMsg(err instanceof ApiError ? getApiErrorMessage(err.body) : 'Error')
-    }
-  }
-
-  async function linkTeacherStudent(e: FormEvent) {
-    e.preventDefault()
-    if (!token) return
-    setMsg(null)
-    const tid = Number(teacherId)
-    const sid = Number(studentId)
-    if (!Number.isInteger(tid) || !Number.isInteger(sid)) {
-      setMsg('IDs invalidos')
-      return
-    }
-    try {
-      await api.post('/institutions/teacher-students', {
-        json: { teacherId: tid, studentId: sid },
-        token,
-      })
-      setMsg('Asociacion docente-estudiante guardada.')
-      setTeacherId('')
-      setStudentId('')
+      bumpRoster()
     } catch (err) {
       setMsg(err instanceof ApiError ? getApiErrorMessage(err.body) : 'Error')
     }
@@ -147,13 +196,14 @@ export function AdminHome() {
       {msg && <div className="alert alert-info text-sm">{msg}</div>}
 
 
-      <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <SectionCard
           title="Alta de usuario"
           subtitle="Incorpora nuevos perfiles operativos dentro de tu institucion."
           titleIcon={<HiUserPlus aria-hidden />}
         >
-          <form className="mt-2 grid  gap-4" onSubmit={provisionUser}>
+          <form className="mt-2 grid gap-4" onSubmit={provisionUser}>
             <label className="form-control w-full">
               <div className="label pt-0">
                 <span className="label-text">Nombre</span>
@@ -249,41 +299,85 @@ export function AdminHome() {
             </button>
           </form>
         </SectionCard>
-
       </div>
-
       <SectionCard
-        title="Asociar docente y estudiante"
-        subtitle="Define la supervision academica para un seguimiento mas preciso."
-        titleIcon={<HiLink aria-hidden />}
+        title="Usuarios de la institución"
+        subtitle="Consulta ID, correo, nombre y rol para apoyar la reasignación de permisos."
+        titleIcon={<HiUsers aria-hidden />}
       >
-        <form className="mt-2 grid max-w-xl gap-4" onSubmit={linkTeacherStudent}>
-          <label className="form-control w-full">
+        <div className="relative mt-2 space-y-4">
+          {tableBusy ? (
+            <div className="absolute inset-0 z-10 flex items-start justify-center rounded-lg bg-base-100/65 pt-10">
+              <span className="loading loading-md loading-spinner text-primary" aria-label="Cargando" />
+            </div>
+          ) : null}
+          <label className="form-control w-full max-w-md">
             <div className="label pt-0">
-              <span className="label-text">ID docente</span>
+              <span className="label-text flex items-center gap-2">
+                <HiMagnifyingGlass className="h-4 w-4 opacity-70" aria-hidden />
+                Buscar por nombre
+              </span>
             </div>
             <input
-              value={teacherId}
-              onChange={(e) => setTeacherId(e.target.value)}
-              required
-              className="input input-bordered w-full"
+              type="search"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Ej. María García"
+              className="input input-bordered input-sm w-full"
+              autoComplete="off"
             />
           </label>
-          <label className="form-control w-full">
-            <div className="label pt-0">
-              <span className="label-text">ID estudiante</span>
+
+          {(rosterMeta?.total ?? 0) === 0 ? (
+            <EmptyState
+              title="Sin usuarios que coincidan."
+              detail={
+                debouncedSearch
+                  ? 'Prueba con otro nombre o borra el filtro.'
+                  : 'Aún no hay usuarios en esta institución.'
+              }
+            />
+          ) : (
+            <div className="space-y-3">
+              <div className="overflow-x-auto">
+                <table className="table table-zebra table-sm">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Correo</th>
+                      <th>Nombre</th>
+                      <th>Rol</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {roster.map((u) => (
+                      <tr key={u.id}>
+                        <th className="tabular-nums">{formatId(u.id)}</th>
+                        <td className="max-w-[14rem] truncate" title={u.email}>
+                          {u.email}
+                        </td>
+                        <td className="max-w-[12rem] truncate" title={u.fullName ?? undefined}>
+                          {u.fullName ?? '—'}
+                        </td>
+                        <td className="text-sm">{formatRolesEs(u.roles)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <TablePagination
+                page={rosterMeta?.currentPage ?? rosterPage}
+                perPage={rosterMeta?.perPage ?? rosterPerPage}
+                total={rosterMeta?.total ?? roster.length}
+                onPageChange={(nextPage) => setRosterPage(nextPage)}
+                onPerPageChange={(nextPerPage) => {
+                  setRosterPerPage(nextPerPage)
+                  setRosterPage(1)
+                }}
+              />
             </div>
-            <input
-              value={studentId}
-              onChange={(e) => setStudentId(e.target.value)}
-              required
-              className="input input-bordered w-full"
-            />
-          </label>
-          <button type="submit" className="btn btn-outline w-fit">
-            Guardar
-          </button>
-        </form>
+          )}
+        </div>
       </SectionCard>
     </div>
   )

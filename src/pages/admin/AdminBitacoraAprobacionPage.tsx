@@ -6,6 +6,8 @@ import { EmptyState, ExecutiveHero, SectionCard } from '../../components/ui/exec
 import { TablePagination } from '../../components/ui/TablePagination'
 import { formatCreditsWithUnit, formatId } from '../../i18n/format'
 import { formatRelativeDate } from '../../utils/dates'
+import type { PaginatedMeta, PaginatedPayload } from '../../types'
+
 type RewardRow = {
   id: number
   submissionId: number
@@ -15,24 +17,10 @@ type RewardRow = {
   postedAt: string | null
 }
 
-type PaginatedMeta = {
-  total: number
-  perPage: number
-  currentPage: number
-  lastPage: number
-  firstPage: number
-  firstPageUrl: string | null
-  lastPageUrl: string | null
-  nextPageUrl: string | null
-  previousPageUrl: string | null
+type RewardsHistorySummary = {
+  transactionCount: number
+  creditsTotal: number
 }
-
-type PaginatedRewardsResponse = {
-  items: RewardRow[]
-  meta: PaginatedMeta
-}
-
-
 
 /**
  * School admin approval ledger: Credit posted after final admin approval.
@@ -41,6 +29,7 @@ export function AdminBitacoraAprobacionPage() {
   const { token } = useAuth()
   const [history, setHistory] = useState<RewardRow[]>([])
   const [historyMeta, setHistoryMeta] = useState<PaginatedMeta | null>(null)
+  const [summary, setSummary] = useState<RewardsHistorySummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [historyPage, setHistoryPage] = useState(1)
@@ -51,12 +40,16 @@ export function AdminBitacoraAprobacionPage() {
     setError(null)
     setLoading(true)
     try {
-      const h = await api.get<PaginatedRewardsResponse>(
-        `/rewards/history?page=${historyPage}&perPage=${historyPerPage}`,
-        { token }
-      )
+      const [h, s] = await Promise.all([
+        api.get<PaginatedPayload<RewardRow>>(
+          `/rewards/history?page=${historyPage}&perPage=${historyPerPage}`,
+          { token }
+        ),
+        api.get<RewardsHistorySummary>('/rewards/history/summary', { token }),
+      ])
       setHistory(Array.isArray(h?.items) ? h.items : [])
       setHistoryMeta(h?.meta ?? null)
+      setSummary(s)
     } catch (e) {
       setError(e instanceof ApiError ? getApiErrorMessage(e.body) : 'Error al cargar')
     } finally {
@@ -97,6 +90,13 @@ export function AdminBitacoraAprobacionPage() {
         }
         titleIcon={<HiBanknotes aria-hidden />}
       >
+        <div className="mb-4 flex w-full flex-wrap items-baseline gap-2 border-b border-base-300 pb-3">
+          <p className="text-sm text-base-content/70">Total de Crédito distribuido en la institución</p>
+          <p className="ml-auto shrink-0 text-right text-lg font-semibold tabular-nums text-secondary">
+            {formatCreditsWithUnit(summary?.creditsTotal ?? 0)}
+          </p>
+        </div>
+
         {history.length === 0 ? (
           <EmptyState
             title="Sin movimientos."

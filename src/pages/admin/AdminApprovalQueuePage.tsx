@@ -7,6 +7,7 @@ import { Modal } from '../../components/ui/Modal'
 import { TablePagination } from '../../components/ui/TablePagination'
 import { formatId } from '../../i18n/format'
 import { formatRelativeDate } from '../../utils/dates'
+import type { PaginatedMeta, PaginatedPayload } from '../../types'
 
 type QueueRow = {
   id: number
@@ -18,23 +19,6 @@ type QueueRow = {
   status: string
   statusLabelEs: string
   submittedAt: string
-}
-
-type PaginatedMeta = {
-  total: number
-  perPage: number
-  currentPage: number
-  lastPage: number
-  firstPage: number
-  firstPageUrl: string | null
-  lastPageUrl: string | null
-  nextPageUrl: string | null
-  previousPageUrl: string | null
-}
-
-type PaginatedQueueResponse = {
-  items: QueueRow[]
-  meta: PaginatedMeta
 }
 
 function statusBadgeClass(status: string): string {
@@ -70,7 +54,7 @@ export function AdminApprovalQueuePage() {
     setError(null)
     setLoading(true)
     try {
-      const q = await api.get<PaginatedQueueResponse>(
+      const q = await api.get<PaginatedPayload<QueueRow>>(
         `/submissions/admin-queue?page=${queuePage}&perPage=${queuePerPage}`,
         { token }
       )

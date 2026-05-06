@@ -10,6 +10,7 @@ import { EmptyState, ExecutiveHero, KpiStrip, SectionCard } from '../../componen
 import { TablePagination } from '../../components/ui/TablePagination'
 import { CREDIT_TOKEN_NAME, TASK_STATUS_LABELS } from '../../i18n/es'
 import { formatId } from '../../i18n/format'
+import type { PaginatedMeta, PaginatedPayload } from '../../types'
 
 type TaskRow = {
   id: number
@@ -18,23 +19,6 @@ type TaskRow = {
   rewardAmount: number
   dueAt: string | null
   status: string
-}
-
-type PaginatedMeta = {
-  total: number
-  perPage: number
-  currentPage: number
-  lastPage: number
-  firstPage: number
-  firstPageUrl: string | null
-  lastPageUrl: string | null
-  nextPageUrl: string | null
-  previousPageUrl: string | null
-}
-
-type TasksPageResponse = {
-  items: TaskRow[]
-  meta: PaginatedMeta
 }
 
 type TeacherTaskSummary = {
@@ -69,7 +53,7 @@ export function TeacherHome() {
     try {
       const [s, t] = await Promise.all([
         api.get<TeacherTaskSummary>('/tasks/summary', { token }),
-        api.get<TasksPageResponse>(`/tasks?page=${tasksPage}&perPage=${tasksPerPage}`, { token }),
+        api.get<PaginatedPayload<TaskRow>>(`/tasks?page=${tasksPage}&perPage=${tasksPerPage}`, { token }),
       ])
       setSummary(s)
       setTasks(Array.isArray(t?.items) ? t.items : [])
