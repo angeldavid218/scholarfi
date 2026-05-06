@@ -1,35 +1,18 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { HiArrowPath, HiBanknotes, HiLink, HiUserGroup, HiUserPlus } from 'react-icons/hi2'
+import { HiLink, HiUserGroup, HiUserPlus } from 'react-icons/hi2'
 import { api, ApiError, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
-import { EmptyState, ExecutiveHero, KpiStrip, SectionCard } from '../../components/ui/executive'
+import { ExecutiveHero, KpiStrip, SectionCard } from '../../components/ui/executive'
 import { formatCreditsWithUnit, formatId } from '../../i18n/format'
 
-type RewardRow = {
-  id: number
-  submissionId: number
-  studentId: number
-  amount: number
-  postedAt: string | null
-}
-
-function formatRelativeDate(value: string | null): string {
-  if (!value) return '—'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  const diffMs = date.getTime() - Date.now()
-  const minute = 60 * 1000
-  const hour = 60 * minute
-  const day = 24 * hour
-  const rtf = new Intl.RelativeTimeFormat('es', { numeric: 'auto' })
-  if (Math.abs(diffMs) < hour) return rtf.format(Math.round(diffMs / minute), 'minute')
-  if (Math.abs(diffMs) < day) return rtf.format(Math.round(diffMs / hour), 'hour')
-  return rtf.format(Math.round(diffMs / day), 'day')
+type HistorySummary = {
+  transactionCount: number
+  creditsTotal: number
 }
 
 export function AdminHome() {
   const { token } = useAuth()
-  const [history, setHistory] = useState<RewardRow[]>([])
+  const [summary, setSummary] = useState<HistorySummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
@@ -50,8 +33,8 @@ export function AdminHome() {
     setError(null)
     setLoading(true)
     try {
-      const h = await api.get<RewardRow[]>('/rewards/history', { token })
-      setHistory(Array.isArray(h) ? h : [])
+      const s = await api.get<HistorySummary>('/rewards/history/summary', { token })
+      setSummary(s)
     } catch (e) {
       setError(e instanceof ApiError ? getApiErrorMessage(e.body) : 'Error al cargar')
     } finally {
@@ -134,6 +117,9 @@ export function AdminHome() {
     )
   }
 
+  const txCount = summary?.transactionCount ?? 0
+  const creditsTotal = summary?.creditsTotal ?? 0
+
   return (
     <div className="space-y-6">
       <ExecutiveHero
@@ -144,11 +130,15 @@ export function AdminHome() {
       <KpiStrip
         items={[
           { label: 'Cola aprobacion', value: 'Ver modulo', hint: 'Seccion dedicada en sidebar' },
-          { label: 'Movimientos', value: formatId(history.length), hint: 'Transacciones registradas' },
+          {
+            label: 'Movimientos',
+            value: formatId(txCount),
+            hint: 'Transacciones en la bitácora de aprobación',
+          },
           {
             label: 'Créditos acumulados',
-            value: formatCreditsWithUnit(history.reduce((acc, row) => acc + row.amount, 0)),
-            hint: 'Total de Credit publicado en el historial',
+            value: formatCreditsWithUnit(creditsTotal),
+            hint: 'Total de Credit publicado en la institución',
           },
         ]}
       />
@@ -156,12 +146,14 @@ export function AdminHome() {
       {error && <div className="alert alert-error">{error}</div>}
       {msg && <div className="alert alert-info text-sm">{msg}</div>}
 
-      <SectionCard
-        title="Alta de usuario"
-        subtitle="Incorpora nuevos perfiles operativos dentro de tu institucion."
-        titleIcon={<HiUserPlus aria-hidden />}
-      >
-          <form className="mt-2 grid max-w-xl gap-4" onSubmit={provisionUser}>
+
+      <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+        <SectionCard
+          title="Alta de usuario"
+          subtitle="Incorpora nuevos perfiles operativos dentro de tu institucion."
+          titleIcon={<HiUserPlus aria-hidden />}
+        >
+          <form className="mt-2 grid  gap-4" onSubmit={provisionUser}>
             <label className="form-control w-full">
               <div className="label pt-0">
                 <span className="label-text">Nombre</span>
@@ -216,13 +208,13 @@ export function AdminHome() {
               Crear
             </button>
           </form>
-      </SectionCard>
+        </SectionCard>
 
-      <SectionCard
-        title="Reasignar rol"
-        subtitle="Ajusta la responsabilidad operativa manteniendo control institucional."
-        titleIcon={<HiUserGroup aria-hidden />}
-      >
+        <SectionCard
+          title="Reasignar rol"
+          subtitle="Ajusta la responsabilidad operativa manteniendo control institucional."
+          titleIcon={<HiUserGroup aria-hidden />}
+        >
           <p className="text-sm text-base-content/70">Reemplaza los roles del usuario.</p>
           <form className="mt-2 grid max-w-xl gap-4" onSubmit={assignRoleSubmit}>
             <label className="form-control w-full">
@@ -256,83 +248,42 @@ export function AdminHome() {
               Guardar
             </button>
           </form>
-      </SectionCard>
+        </SectionCard>
+
+      </div>
 
       <SectionCard
         title="Asociar docente y estudiante"
         subtitle="Define la supervision academica para un seguimiento mas preciso."
         titleIcon={<HiLink aria-hidden />}
       >
-          <form className="mt-2 grid max-w-xl gap-4" onSubmit={linkTeacherStudent}>
-            <label className="form-control w-full">
-              <div className="label pt-0">
-                <span className="label-text">ID docente</span>
-              </div>
-              <input
-                value={teacherId}
-                onChange={(e) => setTeacherId(e.target.value)}
-                required
-                className="input input-bordered w-full"
-              />
-            </label>
-            <label className="form-control w-full">
-              <div className="label pt-0">
-                <span className="label-text">ID estudiante</span>
-              </div>
-              <input
-                value={studentId}
-                onChange={(e) => setStudentId(e.target.value)}
-                required
-                className="input input-bordered w-full"
-              />
-            </label>
-            <button type="submit" className="btn btn-outline w-fit">
-              Guardar
-            </button>
-          </form>
-      </SectionCard>
-
-      <SectionCard
-        title="Historial de créditos"
-        subtitle="Bitácora institucional de movimientos y publicación de Credit al estudiante."
-        actions={
-          <button type="button" className="btn btn-outline btn-sm gap-1" onClick={() => load()}>
-            <HiArrowPath className="h-4 w-4" aria-hidden />
-            Actualizar
-          </button>
-        }
-        titleIcon={<HiBanknotes aria-hidden />}
-      >
-          {history.length === 0 ? (
-            <EmptyState title="Sin movimientos." detail="Las aprobaciones que liberan Credit aparecerán en esta bitácora." />
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="table table-zebra table-sm">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Envio</th>
-                    <th>Estudiante</th>
-                    <th>Créditos</th>
-                    <th>Publicado</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {history.map((r) => (
-                    <tr key={r.id}>
-                      <th>{formatId(r.id)}</th>
-                      <td>{formatId(r.submissionId)}</td>
-                      <td>{formatId(r.studentId)}</td>
-                      <td className="font-medium tabular-nums text-secondary">{formatCreditsWithUnit(r.amount)}</td>
-                      <td className="text-xs text-base-content/70">
-                        <span title={r.postedAt ?? undefined}>{formatRelativeDate(r.postedAt)}</span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+        <form className="mt-2 grid max-w-xl gap-4" onSubmit={linkTeacherStudent}>
+          <label className="form-control w-full">
+            <div className="label pt-0">
+              <span className="label-text">ID docente</span>
             </div>
-          )}
+            <input
+              value={teacherId}
+              onChange={(e) => setTeacherId(e.target.value)}
+              required
+              className="input input-bordered w-full"
+            />
+          </label>
+          <label className="form-control w-full">
+            <div className="label pt-0">
+              <span className="label-text">ID estudiante</span>
+            </div>
+            <input
+              value={studentId}
+              onChange={(e) => setStudentId(e.target.value)}
+              required
+              className="input input-bordered w-full"
+            />
+          </label>
+          <button type="submit" className="btn btn-outline w-fit">
+            Guardar
+          </button>
+        </form>
       </SectionCard>
     </div>
   )

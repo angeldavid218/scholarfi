@@ -19,7 +19,7 @@ export function formatAmount(value: number | null | undefined): string {
   return amountFormatter.format(value)
 }
 
-/** Numeric amount with the Credit token label in Spanish (e.g. `12 créditos`). */
+/** Amount plus localized Credit unit suffix (see `CREDITS_COPY` in `es.ts`). */
 export function formatCreditsWithUnit(value: number | null | undefined): string {
   const n = formatAmount(value)
   if (n === '—') return '—'

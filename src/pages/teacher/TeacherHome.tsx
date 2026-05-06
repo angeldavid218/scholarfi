@@ -7,6 +7,7 @@ import {
 import { api, ApiError, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
 import { EmptyState, ExecutiveHero, KpiStrip, SectionCard } from '../../components/ui/executive'
+import { TablePagination } from '../../components/ui/TablePagination'
 import { CREDIT_TOKEN_NAME, TASK_STATUS_LABELS } from '../../i18n/es'
 import { formatId } from '../../i18n/format'
 
@@ -19,6 +20,28 @@ type TaskRow = {
   status: string
 }
 
+type PaginatedMeta = {
+  total: number
+  perPage: number
+  currentPage: number
+  lastPage: number
+  firstPage: number
+  firstPageUrl: string | null
+  lastPageUrl: string | null
+  nextPageUrl: string | null
+  previousPageUrl: string | null
+}
+
+type TasksPageResponse = {
+  items: TaskRow[]
+  meta: PaginatedMeta
+}
+
+type TeacherTaskSummary = {
+  total: number
+  closed: number
+}
+
 function statusBadgeClass(status: string): string {
   if (status === 'active') return 'badge badge-success badge-sm'
   if (status === 'closed') return 'badge badge-neutral badge-sm'
@@ -28,13 +51,13 @@ function statusBadgeClass(status: string): string {
 export function TeacherHome() {
   const { token } = useAuth()
   const [tasks, setTasks] = useState<TaskRow[]>([])
+  const [tasksMeta, setTasksMeta] = useState<PaginatedMeta | null>(null)
+  const [summary, setSummary] = useState<TeacherTaskSummary | null>(null)
+  const [tasksPage, setTasksPage] = useState(1)
+  const [tasksPerPage, setTasksPerPage] = useState(10)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const [title, setTitle] = useState('')
-  const [description, setDescription] = useState('')
-  const [rewardAmount, setRewardAmount] = useState('10')
-  const [dueAt, setDueAt] = useState('')
   const [createMsg, setCreateMsg] = useState<string | null>(null)
 
   const [actionMsg, setActionMsg] = useState<string | null>(null)
@@ -44,36 +67,44 @@ export function TeacherHome() {
     setError(null)
     setLoading(true)
     try {
-      const t = await api.get<TaskRow[]>('/tasks', { token })
-      setTasks(Array.isArray(t) ? t : [])
+      const [s, t] = await Promise.all([
+        api.get<TeacherTaskSummary>('/tasks/summary', { token }),
+        api.get<TasksPageResponse>(`/tasks?page=${tasksPage}&perPage=${tasksPerPage}`, { token }),
+      ])
+      setSummary(s)
+      setTasks(Array.isArray(t?.items) ? t.items : [])
+      setTasksMeta(t?.meta ?? null)
     } catch (e) {
       setError(e instanceof ApiError ? getApiErrorMessage(e.body) : 'Error al cargar')
     } finally {
       setLoading(false)
     }
-  }, [token])
+  }, [token, tasksPage, tasksPerPage])
 
   useEffect(() => {
     load()
   }, [load])
 
-  async function createTask(e: FormEvent) {
+  async function createTask(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!token) return
     setCreateMsg(null)
+    const form = e.currentTarget
+    const fd = new FormData(form)
+    const title = String(fd.get('title') ?? '').trim()
+    const description = String(fd.get('description') ?? '').trim()
+    const rewardAmount = Number(String(fd.get('rewardAmount') ?? ''))
+    const dueAtRaw = String(fd.get('dueAt') ?? '').trim()
     try {
       const body: Record<string, unknown> = {
-        title: title.trim(),
-        description: description.trim(),
-        rewardAmount: Number(rewardAmount),
+        title,
+        description,
+        rewardAmount,
       }
-      if (dueAt.trim()) body.dueAt = new Date(dueAt).toISOString()
-      await api.post('/tasks', { json: body, token });
+      if (dueAtRaw) body.dueAt = new Date(dueAtRaw).toISOString()
+      await api.post('/tasks', { json: body, token })
       setCreateMsg('Tarea creada.')
-      setTitle('')
-      setDescription('')
-      setRewardAmount('10')
-      setDueAt('')
+      form.reset()
       await load()
     } catch (err) {
       setCreateMsg(
@@ -104,6 +135,11 @@ export function TeacherHome() {
     )
   }
 
+  const totalTasks = summary?.total ?? 0
+  const closedTasks = summary?.closed ?? 0
+  const closeRatePct =
+    totalTasks > 0 ? Math.round((closedTasks / totalTasks) * 100) : 0
+
   return (
     <div className="space-y-6">
       <ExecutiveHero
@@ -113,11 +149,11 @@ export function TeacherHome() {
       />
       <KpiStrip
         items={[
-          { label: 'Tareas propias', value: formatId(tasks.length), hint: 'Inventario actual' },
+          { label: 'Tareas propias', value: formatId(totalTasks), hint: 'Inventario actual' },
           { label: 'Cola pendiente', value: 'Ver modulo', hint: 'Seccion dedicada en sidebar' },
           {
             label: 'Tasa de cierre',
-            value: tasks.length > 0 ? `${Math.round((tasks.filter((t) => t.status !== 'active').length / tasks.length) * 100)}%` : '0%',
+            value: `${closeRatePct}%`,
             hint: 'Tareas finalizadas',
           },
         ]}
@@ -141,8 +177,7 @@ export function TeacherHome() {
               <span className="label-text">Titulo</span>
             </div>
             <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              name="title"
               required
               minLength={2}
               className="input input-bordered w-full"
@@ -153,8 +188,7 @@ export function TeacherHome() {
               <span className="label-text">Descripcion</span>
             </div>
             <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              name="description"
               required
               minLength={2}
               rows={3}
@@ -168,11 +202,11 @@ export function TeacherHome() {
               </span>
             </div>
             <input
+              name="rewardAmount"
               type="number"
               min={0.01}
               step="any"
-              value={rewardAmount}
-              onChange={(e) => setRewardAmount(e.target.value)}
+              defaultValue={10}
               required
               className="input input-bordered w-full"
             />
@@ -181,12 +215,7 @@ export function TeacherHome() {
             <div className="label pt-0">
               <span className="label-text">Fecha limite (opcional)</span>
             </div>
-            <input
-              type="datetime-local"
-              value={dueAt}
-              onChange={(e) => setDueAt(e.target.value)}
-              className="input input-bordered w-full"
-            />
+            <input name="dueAt" type="datetime-local" className="input input-bordered w-full" />
           </label>
           {createMsg && (
             <div
@@ -209,47 +238,59 @@ export function TeacherHome() {
         subtitle="Portafolio de actividades bajo tu responsabilidad."
         titleIcon={<HiClipboardDocumentList aria-hidden />}
       >
-        {tasks.length === 0 ? (
+        {(tasksMeta?.total ?? 0) === 0 ? (
           <EmptyState title="Aun no registras tareas." detail="Crea una tarea para iniciar el ciclo de evidencia." />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="table table-zebra table-sm">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Titulo</th>
-                  <th>Estado</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {tasks.map((t) => (
-                  <tr key={t.id}>
-                    <th>{formatId(t.id)}</th>
-                    <td>{t.title}</td>
-                    <td>
-                      <span className={statusBadgeClass(t.status)}>
-                        {TASK_STATUS_LABELS[t.status as keyof typeof TASK_STATUS_LABELS] ?? t.status}
-                      </span>
-                    </td>
-                    <td>
-                      {t.status === 'active' ? (
-                        <button
-                          type="button"
-                          className="btn btn-outline btn-sm gap-1"
-                          onClick={() => closeTask(t.id)}
-                        >
-                          <HiLockClosed className="h-4 w-4" aria-hidden />
-                          Cerrar
-                        </button>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
+          <div className="space-y-3">
+            <div className="overflow-x-auto">
+              <table className="table table-zebra table-sm">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Titulo</th>
+                    <th>Estado</th>
+                    <th />
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {tasks.map((t) => (
+                    <tr key={t.id}>
+                      <th>{formatId(t.id)}</th>
+                      <td>{t.title}</td>
+                      <td>
+                        <span className={statusBadgeClass(t.status)}>
+                          {TASK_STATUS_LABELS[t.status as keyof typeof TASK_STATUS_LABELS] ?? t.status}
+                        </span>
+                      </td>
+                      <td>
+                        {t.status === 'active' ? (
+                          <button
+                            type="button"
+                            className="btn btn-outline btn-sm gap-1"
+                            onClick={() => closeTask(t.id)}
+                          >
+                            <HiLockClosed className="h-4 w-4" aria-hidden />
+                            Cerrar
+                          </button>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <TablePagination
+              page={tasksMeta?.currentPage ?? tasksPage}
+              perPage={tasksMeta?.perPage ?? tasksPerPage}
+              total={tasksMeta?.total ?? tasks.length}
+              onPageChange={(nextPage) => setTasksPage(nextPage)}
+              onPerPageChange={(nextPerPage) => {
+                setTasksPerPage(nextPerPage)
+                setTasksPage(1)
+              }}
+            />
           </div>
         )}
       </SectionCard>

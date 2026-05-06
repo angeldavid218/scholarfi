@@ -7,6 +7,7 @@ import {
   HiBuildingOffice2,
   HiClipboardDocumentCheck,
   HiClipboardDocumentList,
+  HiDocumentText,
   HiGlobeAlt,
   HiHome,
   HiInboxStack,
@@ -60,6 +61,16 @@ export function AppShell() {
 
   const resourceItems: NavItem[] = [{ to: '/demo', label: 'Demo UI', Icon: HiRectangleGroup }]
 
+  const schoolAdminBitacoraItems: NavItem[] = roles.includes('school_admin')
+    ? [
+        {
+          to: '/admin/bitacora-aprobacion',
+          label: 'Bitácora de aprobación',
+          Icon: HiDocumentText,
+        },
+      ]
+    : []
+
   function renderNavLink(item: NavItem) {
     const Icon = item.Icon
     return (
@@ -97,6 +108,20 @@ export function AppShell() {
               <ScholarFiWordmark className="h-7 w-auto max-w-[9.5rem] object-left object-contain sm:h-8" />
               <span className="sr-only">ScholarFi — inicio</span>
             </NavLink>
+            {profile?.institutionName ? (
+              <div
+                className="ml-0.5 flex min-w-0 max-w-[min(48vw,12rem)] items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/[0.09] py-1 pl-2 pr-2 shadow-[inset_0_1px_0_0_color-mix(in_oklab,var(--color-primary)_18%,transparent)] sm:max-w-[14rem] md:max-w-[18rem]"
+                title={profile.institutionName}
+              >
+                <HiBuildingOffice2 className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+                <div className="min-w-0 leading-tight">
+                  <p className="text-[0.65rem] font-bold uppercase leading-none tracking-wide text-primary/80">
+                    Institución
+                  </p>
+                  <p className="truncate text-sm font-semibold text-primary">{profile.institutionName}</p>
+                </div>
+              </div>
+            ) : null}
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <span className="hidden max-w-[10rem] truncate text-sm text-base-content/70 sm:inline">
@@ -166,6 +191,19 @@ export function AppShell() {
                 </p>
                 <ul className="space-y-0.5">
                   {panelItems.map((item) => (
+                    <li key={item.to}>{renderNavLink(item)}</li>
+                  ))}
+                </ul>
+              </nav>
+            ) : null}
+
+            {schoolAdminBitacoraItems.length > 0 ? (
+              <nav aria-label="Bitácora de aprobación">
+                <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wide text-base-content/50">
+                  Bitácora de aprobación
+                </p>
+                <ul className="space-y-0.5">
+                  {schoolAdminBitacoraItems.map((item) => (
                     <li key={item.to}>{renderNavLink(item)}</li>
                   ))}
                 </ul>

@@ -4,6 +4,7 @@ import { api, ApiError, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
 import { EmptyState, ExecutiveHero, KpiStrip, SectionCard } from '../../components/ui/executive'
 import { Modal } from '../../components/ui/Modal'
+import { TablePagination } from '../../components/ui/TablePagination'
 import { formatId } from '../../i18n/format'
 import { formatRelativeDate } from '../../utils/dates'
 
@@ -19,9 +20,29 @@ type QueueRow = {
   submittedAt: string
 }
 
+type PaginatedMeta = {
+  total: number
+  perPage: number
+  currentPage: number
+  lastPage: number
+  firstPage: number
+  firstPageUrl: string | null
+  lastPageUrl: string | null
+  nextPageUrl: string | null
+  previousPageUrl: string | null
+}
+
+type PaginatedQueueResponse = {
+  items: QueueRow[]
+  meta: PaginatedMeta
+}
+
 export function TeacherValidationQueuePage() {
   const { token } = useAuth()
   const [queue, setQueue] = useState<QueueRow[]>([])
+  const [queueMeta, setQueueMeta] = useState<PaginatedMeta | null>(null)
+  const [queuePage, setQueuePage] = useState(1)
+  const [queuePerPage, setQueuePerPage] = useState(10)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [actionMsg, setActionMsg] = useState<string | null>(null)
@@ -43,14 +64,18 @@ export function TeacherValidationQueuePage() {
     setError(null)
     setLoading(true)
     try {
-      const q = await api.get<QueueRow[]>('/submissions/teacher-queue', { token })
-      setQueue(Array.isArray(q) ? q : [])
+      const q = await api.get<PaginatedQueueResponse>(
+        `/submissions/teacher-queue?page=${queuePage}&perPage=${queuePerPage}`,
+        { token }
+      )
+      setQueue(Array.isArray(q?.items) ? q.items : [])
+      setQueueMeta(q?.meta ?? null)
     } catch (e) {
       setError(e instanceof ApiError ? getApiErrorMessage(e.body) : 'Error al cargar')
     } finally {
       setLoading(false)
     }
-  }, [token])
+  }, [token, queuePage, queuePerPage])
 
   useEffect(() => {
     loadQueue()
@@ -111,7 +136,11 @@ export function TeacherValidationQueuePage() {
       />
       <KpiStrip
         items={[
-          { label: 'Pendientes', value: formatId(queue.length), hint: 'Envios por revisar' },
+          {
+            label: 'Pendientes',
+            value: formatId(queueMeta?.total ?? queue.length),
+            hint: 'Envios por revisar',
+          },
           { label: 'SLA sugerido', value: '24h', hint: 'Objetivo de respuesta' },
         ]}
       />
@@ -128,68 +157,82 @@ export function TeacherValidationQueuePage() {
         subtitle="Espacio dedicado para revisar evidencia y decidir validacion o rechazo."
         titleIcon={<HiInboxStack aria-hidden />}
       >
-        {queue.length === 0 ? (
+        {(queueMeta?.total ?? 0) === 0 ? (
           <EmptyState title="Sin envios pendientes." detail="Cuando estudiantes envien evidencia, apareceran aqui." />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="table table-zebra">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Tarea</th>
-                  <th>Estudiante</th>
-                  <th>Evidencia</th>
-                  <th>Enviado</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {queue.map((s) => (
-                  <tr key={s.id}>
-                    <th>{formatId(s.id)}</th>
-                    <td>{s.taskTitle}</td>
-                    <td>{formatId(s.studentId)}</td>
-                    <td className="max-w-xl align-top text-sm">
-                      {s.evidenceText ? (
-                        <p className="whitespace-pre-wrap break-words">{s.evidenceText}</p>
-                      ) : null}
-                      {s.evidenceUrl ? (
-                        <a
-                          href={s.evidenceUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="link link-primary block truncate pt-1"
-                        >
-                          Enlace
-                        </a>
-                      ) : null}
-                      {!s.evidenceText && !s.evidenceUrl ? <span className="text-base-content/50">—</span> : null}
-                    </td>
-                    <td className="whitespace-nowrap text-sm text-base-content/70">
-                      <span title={s.submittedAt}>{formatRelativeDate(new Date(s.submittedAt))}</span>
-                    </td>
-                    <td className="flex flex-wrap gap-1">
-                      <button
-                        type="button"
-                        className="btn btn-primary btn-sm gap-1 w-full"
-                        onClick={() => validateSubmission(s.id)}
-                      >
-                        <HiCheck className="h-4 w-4" aria-hidden />
-                        Validar
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-outline btn-error btn-sm gap-1 w-full"
-                        onClick={() => setRejectId(s.id)}
-                      >
-                        <HiXMark className="h-4 w-4" aria-hidden />
-                        Rechazar
-                      </button>
-                    </td>
+          <div className="space-y-3">
+            <div className="overflow-x-auto">
+              <table className="table table-zebra">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Tarea</th>
+                    <th>Estudiante</th>
+                    <th>Evidencia</th>
+                    <th>Enviado</th>
+                    <th />
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {queue.map((s) => (
+                    <tr key={s.id}>
+                      <th>{formatId(s.id)}</th>
+                      <td>{s.taskTitle}</td>
+                      <td>{formatId(s.studentId)}</td>
+                      <td className="max-w-xl align-top text-sm">
+                        {s.evidenceText ? (
+                          <p className="whitespace-pre-wrap break-words">{s.evidenceText}</p>
+                        ) : null}
+                        {s.evidenceUrl ? (
+                          <a
+                            href={s.evidenceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="link link-primary block truncate pt-1"
+                          >
+                            Enlace
+                          </a>
+                        ) : null}
+                        {!s.evidenceText && !s.evidenceUrl ? (
+                          <span className="text-base-content/50">—</span>
+                        ) : null}
+                      </td>
+                      <td className="whitespace-nowrap text-sm text-base-content/70">
+                        <span title={s.submittedAt}>{formatRelativeDate(new Date(s.submittedAt))}</span>
+                      </td>
+                      <td className="flex flex-wrap gap-1">
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-sm gap-1 w-full"
+                          onClick={() => validateSubmission(s.id)}
+                        >
+                          <HiCheck className="h-4 w-4" aria-hidden />
+                          Validar
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-outline btn-error btn-sm gap-1 w-full"
+                          onClick={() => setRejectId(s.id)}
+                        >
+                          <HiXMark className="h-4 w-4" aria-hidden />
+                          Rechazar
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <TablePagination
+              page={queueMeta?.currentPage ?? queuePage}
+              perPage={queueMeta?.perPage ?? queuePerPage}
+              total={queueMeta?.total ?? queue.length}
+              onPageChange={(nextPage) => setQueuePage(nextPage)}
+              onPerPageChange={(nextPerPage) => {
+                setQueuePerPage(nextPerPage)
+                setQueuePage(1)
+              }}
+            />
           </div>
         )}
       </SectionCard>

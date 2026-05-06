@@ -4,7 +4,31 @@ import { api, ApiError, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
 import { KpiStrip } from '../../components/ui/executive'
 import { CREDIT_TOKEN_NAME } from '../../i18n/es'
-import { formatAmount, formatId } from '../../i18n/format'
+import { formatAmount, formatCreditsWithUnit, formatId } from '../../i18n/format'
+
+const MARKETPLACE_ITEMS = [
+  {
+    id: 'museum-pass',
+    title: 'Pase para Museo de arte',
+    credits: 500,
+    imageSrc: '/museum.jpg',
+    imageAlt: 'Entrada ilustrativa a un museo de arte',
+  },
+  {
+    id: 'robotics-course',
+    title: 'Curso de Robotica',
+    credits: 800,
+    imageSrc: '/robots.jpg',
+    imageAlt: 'Taller de robotica y componentes electronicos',
+  },
+  {
+    id: 'theater-romeo-juliet',
+    title: 'Pase para teatro obra romeo y julieta',
+    credits: 500,
+    imageSrc: '/theather.jpg',
+    imageAlt: 'Escenario de teatro con telon',
+  },
+] as const
 
 type TaskRow = { id: number }
 type SubmissionRow = { id: number }
@@ -15,7 +39,7 @@ type Balance = {
 }
 
 /**
- * Resumen del estudiante: metricas (KPI) y saldo en Credit (créditos). Tareas y envios en rutas dedicadas.
+ * Student summary route: KPIs only; tasks and submissions use dedicated routes.
  */
 export function StudentHome() {
   const { token } = useAuth()
@@ -123,6 +147,46 @@ export function StudentHome() {
           . Consulta resultados en <span className="font-medium text-base-content/70">Mis envios</span>.
         </p>
       </div>
+      <div className="divider"></div>
+      <section className="space-y-3" aria-labelledby="student-marketplace-heading">
+        <div>
+          <h2
+            id="student-marketplace-heading"
+            className="text-sm font-semibold uppercase tracking-wider text-base-content/60"
+          >
+            Marketplace
+          </h2>
+          <p className="mt-1 text-xs text-base-content/55">
+            Ejemplos fijos para la demo — el canje real estará disponible más adelante.
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {MARKETPLACE_ITEMS.map((item) => (
+            <article
+              key={item.id}
+              className="card overflow-hidden border border-base-300 bg-base-100 shadow-sm transition-shadow hover:shadow-md"
+            >
+              <figure className="relative aspect-[4/3] w-full bg-base-200">
+                <img
+                  src={item.imageSrc}
+                  alt={item.imageAlt}
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                />
+              </figure>
+              <div className="card-body gap-2 p-4">
+                <h3 className="card-title text-base leading-snug">{item.title}</h3>
+                <p className="text-lg font-semibold tabular-nums text-primary">
+                  {formatCreditsWithUnit(item.credits)}
+                </p>
+                <button type="button" className="btn btn-primary btn-sm w-full" disabled>
+                  Canjear
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
     </div>
   )
 }

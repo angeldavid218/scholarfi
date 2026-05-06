@@ -3,6 +3,7 @@ import { AppShell } from './components/AppShell'
 import { RequireAuth } from './components/RequireAuth'
 import { RoleGate } from './components/RoleGate'
 import { AdminApprovalQueuePage } from './pages/admin/AdminApprovalQueuePage'
+import { AdminBitacoraAprobacionPage } from './pages/admin/AdminBitacoraAprobacionPage'
 import { AdminHome } from './pages/admin/AdminHome'
 import { DemoPage } from './pages/DemoPage'
 import { HomeRedirect } from './pages/HomeRedirect'
@@ -36,6 +37,7 @@ export default function App() {
           <Route element={<RoleGate allow={['school_admin']} />}>
             <Route path="admin" element={<AdminHome />} />
             <Route path="admin/cola-aprobacion" element={<AdminApprovalQueuePage />} />
+            <Route path="admin/bitacora-aprobacion" element={<AdminBitacoraAprobacionPage />} />
           </Route>
           <Route element={<RoleGate allow={['super_admin']} />}>
             <Route path="super" element={<SuperHome />} />

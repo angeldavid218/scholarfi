@@ -18,6 +18,7 @@ export type Profile = {
   updatedAt: string
   initials: string | null
   institutionId: number | null
+  institutionName: string | null
   roles: string[]
 }
 
