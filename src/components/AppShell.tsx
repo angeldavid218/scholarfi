@@ -9,10 +9,8 @@ import {
   HiClipboardDocumentList,
   HiDocumentText,
   HiGlobeAlt,
-  HiHome,
   HiInboxStack,
   HiQueueList,
-  HiRectangleGroup,
 } from 'react-icons/hi2'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
@@ -34,7 +32,7 @@ export function AppShell() {
   const roles = profile?.roles ?? []
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
-  const principalItems: NavItem[] = [{ to: '/', label: 'Inicio', end: true, Icon: HiHome }]
+  // const principalItems: NavItem[] = [{ to: '/', label: 'Inicio', end: true, Icon: HiHome }]
 
   const panelItems: NavItem[] = [
     ...(roles.includes('student')
@@ -59,7 +57,7 @@ export function AppShell() {
     ...(roles.includes('super_admin') ? [{ to: '/super', label: 'Super admin', Icon: HiGlobeAlt } as NavItem] : []),
   ]
 
-  const resourceItems: NavItem[] = [{ to: '/demo', label: 'Demo UI', Icon: HiRectangleGroup }]
+  // const resourceItems: NavItem[] = [{ to: '/demo', label: 'Demo UI', Icon: HiRectangleGroup }]
 
   const schoolAdminBitacoraItems: NavItem[] = roles.includes('school_admin')
     ? [
