@@ -1,7 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import {
   HiArrowRightOnRectangle,
-  HiArrowRightStartOnRectangle,
   HiEye,
   HiEyeSlash,
   HiEnvelope,
@@ -10,10 +9,9 @@ import {
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { ScholarFiWordmark } from '../components/BrandLogos'
-import { KpiStrip } from '../components/ui/executive'
 
 export function LoginPage() {
-  const { login, token, profile, bootstrapping, loginError, logout } = useAuth()
+  const { login, token, profile, bootstrapping, loginError } = useAuth()
   const location = useLocation()
   const from = (location.state as { from?: string } | null)?.from ?? '/'
 
@@ -85,12 +83,12 @@ export function LoginPage() {
 
       <div className="flex items-center justify-center bg-base-200 p-6">
         <div className="w-full max-w-md space-y-4">
-          <KpiStrip
+          {/*     <KpiStrip
             items={[
               { label: 'Gobernanza', value: '100%', hint: 'Flujo por roles' },
               { label: 'Operacion', value: '24/7', hint: 'Seguimiento continuo' },
             ]}
-          />
+          /> */}
           <div className="card border border-base-300 bg-base-100 shadow-xl">
             <div className="card-body">
               <h2 className="card-title justify-center text-2xl font-semibold text-base-content">
@@ -156,10 +154,10 @@ export function LoginPage() {
                   </div>
                 </label>
                 <div className="card-actions mt-2 justify-end gap-2">
-                  <button type="button" className="btn btn-ghost gap-1" onClick={() => void logout()}>
+                  {/*  <button type="button" className="btn btn-ghost gap-1" onClick={() => void logout()}>
                     <HiArrowRightStartOnRectangle className="h-4 w-4" aria-hidden />
                     Limpiar sesion
-                  </button>
+                  </button> */}
                   <button type="submit" className="btn btn-primary gap-1" disabled={submitting}>
                     {submitting ? (
                       <>
