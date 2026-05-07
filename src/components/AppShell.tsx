@@ -39,22 +39,22 @@ export function AppShell() {
   const panelItems: NavItem[] = [
     ...(roles.includes('student')
       ? ([
-          { to: '/student', end: true, label: 'Resumen', Icon: HiAcademicCap },
-          { to: '/student/tareas', label: 'Tareas disponibles', Icon: HiClipboardDocumentList },
-          { to: '/student/envios', label: 'Mis envios', Icon: HiQueueList },
-        ] as NavItem[])
+        { to: '/student', end: true, label: 'Resumen', Icon: HiAcademicCap },
+        { to: '/student/tareas', label: 'Tareas disponibles', Icon: HiClipboardDocumentList },
+        { to: '/student/envios', label: 'Mis envios', Icon: HiQueueList },
+      ] as NavItem[])
       : []),
     ...(roles.includes('teacher')
       ? ([
-          { to: '/teacher', end: true, label: 'Docente', Icon: HiClipboardDocumentList },
-          { to: '/teacher/cola-validacion', label: 'Cola de validacion', Icon: HiInboxStack },
-        ] as NavItem[])
+        { to: '/teacher', end: true, label: 'Docente', Icon: HiClipboardDocumentList },
+        { to: '/teacher/cola-validacion', label: 'Cola de validacion', Icon: HiInboxStack },
+      ] as NavItem[])
       : []),
     ...(roles.includes('school_admin')
       ? ([
-          { to: '/admin', end: true, label: 'Admin escolar', Icon: HiBuildingOffice2 },
-          { to: '/admin/cola-aprobacion', label: 'Cola de aprobacion', Icon: HiClipboardDocumentCheck },
-        ] as NavItem[])
+        { to: '/admin', end: true, label: 'Admin escolar', Icon: HiBuildingOffice2 },
+        { to: '/admin/cola-aprobacion', label: 'Cola de aprobacion', Icon: HiClipboardDocumentCheck },
+      ] as NavItem[])
       : []),
     ...(roles.includes('super_admin') ? [{ to: '/super', label: 'Super admin', Icon: HiGlobeAlt } as NavItem] : []),
   ]
@@ -63,12 +63,12 @@ export function AppShell() {
 
   const schoolAdminBitacoraItems: NavItem[] = roles.includes('school_admin')
     ? [
-        {
-          to: '/admin/bitacora-aprobacion',
-          label: 'Bitácora de aprobación',
-          Icon: HiDocumentText,
-        },
-      ]
+      {
+        to: '/admin/bitacora-aprobacion',
+        label: 'Bitácora de aprobación',
+        Icon: HiDocumentText,
+      },
+    ]
     : []
 
   function renderNavLink(item: NavItem) {
@@ -173,7 +173,7 @@ export function AppShell() {
                 <span className="truncate">ScholarFi</span>
               </NavLink>
             </div>
-            <nav aria-label="Resumen">
+            {/*        <nav aria-label="Resumen">
               <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wide text-base-content/50">
                 Resumen
               </p>
@@ -182,7 +182,7 @@ export function AppShell() {
                   <li key={item.to}>{renderNavLink(item)}</li>
                 ))}
               </ul>
-            </nav>
+            </nav> */}
 
             {panelItems.length > 0 ? (
               <nav aria-label="Paneles">
@@ -210,7 +210,7 @@ export function AppShell() {
               </nav>
             ) : null}
 
-            <nav aria-label="Recursos">
+            {/*      <nav aria-label="Recursos">
               <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wide text-base-content/50">
                 Recursos
               </p>
@@ -219,7 +219,7 @@ export function AppShell() {
                   <li key={item.to}>{renderNavLink(item)}</li>
                 ))}
               </ul>
-            </nav>
+            </nav> */}
           </div>
         </aside>
 

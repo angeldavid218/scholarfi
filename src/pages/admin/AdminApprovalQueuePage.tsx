@@ -14,6 +14,7 @@ type QueueRow = {
   taskId: number
   taskTitle: string
   studentId: number
+  studentName: string
   evidenceText: string | null
   evidenceUrl: string | null
   status: string
@@ -172,7 +173,9 @@ export function AdminApprovalQueuePage() {
                     <tr key={s.id}>
                       <th>{formatId(s.id)}</th>
                       <td>{s.taskTitle}</td>
-                      <td>{formatId(s.studentId)}</td>
+                      <td title={`ID estudiante: ${formatId(s.studentId)}`}>
+                        {s.studentName?.trim() ? s.studentName : formatId(s.studentId)}
+                      </td>
                       <td className="min-w-48 max-w-64">
                         <span className={statusBadgeClass(s.status)}>{s.statusLabelEs}</span>
                       </td>
