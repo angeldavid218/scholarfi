@@ -8,7 +8,7 @@ import {
 } from 'react-icons/hi2'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
-import { ScholarFiWordmark } from '../components/BrandLogos'
+import { ScholarFiWordmark, SolanaMark } from '../components/BrandLogos'
 
 export function LoginPage() {
   const { login, token, profile, bootstrapping, loginError } = useAuth()
@@ -76,6 +76,22 @@ export function LoginPage() {
               <p className="mt-1 text-sm text-primary-content/90">
                 Trazabilidad por rol, decisiones auditables y visualizacion clara del avance estudiantil.
               </p>
+            </div>
+
+            <div
+              className="mt-6 inline-flex max-w-full items-center gap-3 rounded-xl border border-white/15 bg-base-content/10 px-3 py-2.5 backdrop-blur-[2px]"
+              role="img"
+              aria-label="Powered by Solana. Verified ecosystem."
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#0a1628]/90 ring-1 ring-white/10">
+                <SolanaMark className="h-7 w-7" />
+              </div>
+              <div className="min-w-0 flex flex-col gap-0.5">
+                <span className="text-sm font-bold leading-tight text-white">Powered by Solana</span>
+                <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-primary-content/65">
+                  VERIFIED ECOSYSTEM
+                </span>
+              </div>
             </div>
           </div>
         </div>
