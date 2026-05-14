@@ -24,6 +24,8 @@ cp .env.example .env
 3. Set API base URL in `.env` (optional if you rely on the Vite dev proxy):
 
 - `VITE_API_URL` — e.g. `http://localhost:3333/api/v1`. If unset, the app calls same-origin `/api/v1`, which Vite proxies to the backend (see `vite.config.ts`).
+- `VITE_TOKEN_MODE_LABEL` — optional internal badge for staff (e.g. `Demo Mode` or `Devnet`). Not shown to student accounts. Omit in production if unused.
+- `VITE_TOKEN_MODE` — set to `solana` when the API runs with `TOKEN_MODE=solana` so the admin **Bitácora** table shows the **Comprobante** column (Solscan link). Omit or use `mock` for demo builds.
 
 4. Start the app:
 

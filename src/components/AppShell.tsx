@@ -27,10 +27,14 @@ function sidebarItemClass(isActive: boolean) {
 
 type NavItem = { to: string; label: string; end?: boolean; Icon: IconType }
 
+const tokenModeLabel = (import.meta.env.VITE_TOKEN_MODE_LABEL as string | undefined)?.trim() ?? ''
+
 export function AppShell() {
   const { profile, logout } = useAuth()
   const roles = profile?.roles ?? []
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  const showInternalModeBadge =
+    tokenModeLabel.length > 0 && !roles.includes('student')
 
   // const principalItems: NavItem[] = [{ to: '/', label: 'Inicio', end: true, Icon: HiHome }]
 
@@ -128,6 +132,14 @@ export function AppShell() {
             {roles.length > 0 ? (
               <span className="badge badge-outline badge-sm hidden md:inline-flex">
                 {roles[0].replace('_', ' ')}
+              </span>
+            ) : null}
+            {showInternalModeBadge ? (
+              <span
+                className="badge badge-ghost badge-sm hidden md:inline-flex max-w-[10rem] truncate"
+                title="Modo de ejecucion (solo equipo interno)"
+              >
+                {tokenModeLabel}
               </span>
             ) : null}
             <button
