@@ -1,13 +1,14 @@
 # ScholarFi Frontend (`scholarfi`)
 
-React + Vite + TypeScript frontend for the ScholarFi demo simulator.
+React 19 + Vite 8 + TypeScript SPA for the ScholarFi demo simulator. Talks to **scholarfi-back** at `/api/v1` (Bearer auth).
 
 ## Prerequisites
 
 - Node.js 22+ (or current active LTS)
 - npm 11+
+- Running backend (see `scholarfi-back/README.md`)
 
-## First-Run Setup
+## First-run setup
 
 1. Install dependencies:
 
@@ -15,15 +16,16 @@ React + Vite + TypeScript frontend for the ScholarFi demo simulator.
 npm install
 ```
 
-2. Copy environment template:
+2. Copy the environment template:
 
 ```bash
 cp .env.example .env
 ```
 
-3. Set API base URL in `.env` (optional if you rely on the Vite dev proxy):
+3. API URL (optional locally):
 
-- `VITE_API_URL` — e.g. `http://localhost:3333/api/v1`. If unset, the app calls same-origin `/api/v1`, which Vite proxies to the backend (see `vite.config.ts`).
+- **Default (recommended for dev):** leave `VITE_API_URL` unset — the app calls same-origin `/api/v1`, and Vite proxies `/api` to `http://localhost:3333` (`vite.config.ts`).
+- **Explicit:** `VITE_API_URL=http://localhost:3333/api/v1`
 
 4. Start the app:
 
@@ -33,22 +35,44 @@ npm run dev
 
 Default app URL: `http://localhost:5173`
 
-## Script Matrix
+## Script matrix
 
-- `npm run dev` - Start Vite dev server
-- `npm run build` - Run TypeScript project build + Vite production build
-- `npm run lint` - Lint codebase with ESLint
-- `npm run preview` - Preview production build locally
+- `npm run dev` — Vite dev server
+- `npm run build` — `tsc -b` + Vite production build
+- `npm run preview` — preview production build locally
+- `npm run lint` — ESLint
 
-## UI theme (ScholarFi + daisyUI)
+## Application structure
 
-- **Tailwind CSS v4** + **daisyUI 5** with a custom theme **`scholarfi`** in `src/index.css` (colors from `notes/design-notes.md`, semantic mapping per `_bmad-output/planning-artifacts/ux-design-specification.md`).
-- **PostCSS** (`postcss.config.mjs` + `@tailwindcss/postcss`) compiles CSS. (The `@tailwindcss/vite` plugin was dropped: with Vite 8 it left `@tailwind utilities` unparsed, so no styles shipped to the browser.)
-- `index.html` sets `data-theme="scholarfi"`. **Typography:** Plus Jakarta Sans (Google Fonts `<link>` in `index.html`).
+Role-based routes (after login via `POST /auth/login`, token in `sessionStorage`):
 
-## Epic 6 UI Hardening Notes
+| Role | Base paths |
+|------|------------|
+| Student | `/student`, `/student/tareas`, `/student/envios`, `/student/submissions/:id` |
+| Teacher | `/teacher`, `/teacher/cola-validacion` |
+| School admin | `/admin`, `/admin/cola-aprobacion`, `/admin/bitacora-aprobacion` |
+| Super admin | `/super` (institutions) |
 
-- Canonical Spanish status/copy labels are centralized in `src/i18n/es.ts`.
-- Core demo dashboard/detail screen uses centralized labels from the i18n module (`src/App.tsx`).
-- Accessibility baseline includes visible keyboard focus styles and non-color status cues (icon + text).
-- Responsive baseline is validated at `sm`, `md`, `lg`, and `xl` breakpoints in `src/app-demo.css`.
+- **i18n:** Spanish labels in `src/i18n/es.ts` (status copy, `Credit` token name).
+- **Design:** Tailwind CSS v4 + daisyUI 5, theme `scholarfi` in `src/index.css`; Plus Jakarta Sans in `index.html`.
+- **PostCSS:** `@tailwindcss/postcss` in `postcss.config.mjs` (no `@tailwindcss/vite` — Vite 8 left utilities unparsed).
+- **Demo UI kit:** `/demo` (`DemoPage.tsx`) for component showcase.
+- **Login:** split layout with Solana ecosystem branding (`BrandLogos.tsx`); rewards remain simulated (no wallet integration).
+
+## Optional environment variables
+
+From `.env.example` (for future/on-chain demos):
+
+- `VITE_TOKEN_MODE_LABEL` — staff-only header badge (hidden from students)
+- `VITE_TOKEN_MODE=solana` — align UI with backend token mode when implemented
+- `VITE_SOLANA_CLUSTER=devnet` — explorer links for admin bitácora
+
+## Production (Netlify)
+
+1. Build with backend URL set, e.g. `VITE_API_URL=https://your-api.example.com/api/v1`
+2. SPA routing: `public/_redirects` contains `/* /index.html 200`
+3. Ensure backend `CORS_ORIGIN` includes your Netlify URL (e.g. `https://scholarfi.netlify.app`)
+
+## Backend pairing
+
+Seed demo users with `node ace demo:reset` in **scholarfi-back**, then sign in at `/login` with the demo accounts from the backend README.
