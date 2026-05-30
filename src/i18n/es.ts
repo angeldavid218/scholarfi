@@ -65,6 +65,7 @@ const API_ERROR_CODE_MESSAGES: Record<string, string> = {
   INVALID_CREDENTIALS: 'Credenciales invalidas.',
   VALIDATION_ERROR: 'Revisa los campos y vuelve a intentar.',
   INSTITUTION_CODE_TAKEN: 'Ese codigo de institucion ya existe.',
+  NGO_INSTITUTION_CODE_TAKEN: 'Ese codigo de ONG ya existe.',
   INSTITUTION_NOT_FOUND: 'La institucion no existe.',
   INSTITUTION_INACTIVE: 'La institucion no esta activa.',
   TENANT_SCOPE_VIOLATION: 'No tienes permiso para acceder a ese recurso.',

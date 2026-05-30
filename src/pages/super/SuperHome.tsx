@@ -5,6 +5,7 @@ import {
   HiPlusCircle,
   HiPower,
   HiUserPlus,
+  HiGlobeAlt,
 } from 'react-icons/hi2'
 import { api, ApiError, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
@@ -19,9 +20,17 @@ type InstitutionRow = {
   status: 'draft' | 'active' | 'inactive'
 }
 
+type NgoRow = {
+  id: number
+  name: string
+  code: string
+  status: boolean
+}
+
 export function SuperHome() {
   const { token } = useAuth()
   const [institutions, setInstitutions] = useState<InstitutionRow[]>([])
+  const [ngos, setNgos] = useState<NgoRow[]>([])
   const [loading, setLoading] = useState(true)
   const [msg, setMsg] = useState<string | null>(null)
 
@@ -36,22 +45,43 @@ export function SuperHome() {
   const [adminEmail, setAdminEmail] = useState('')
   const [adminPassword, setAdminPassword] = useState('')
 
-  const loadInstitutions = useCallback(async () => {
+  // NGO states
+  const [ngoName, setNgoName] = useState('')
+  const [ngoCode, setNgoCode] = useState('')
+
+  // NGO Admin Bootstrap states
+  const [bootstrapNgoId, setBootstrapNgoId] = useState('')
+  const [ngoAdminName, setNgoAdminName] = useState('')
+  const [ngoAdminEmail, setNgoAdminEmail] = useState('')
+  const [ngoAdminPassword, setNgoAdminPassword] = useState('')
+
+  // NGO Admin Assign states
+  const [assignNgoUserId, setAssignNgoUserId] = useState('')
+  const [assignNgoId, setAssignNgoId] = useState('')
+
+  const loadAllData = useCallback(async (showLoadingSpinner = false) => {
     if (!token) return
-    setLoading(true)
+    if (showLoadingSpinner) {
+      setLoading(true)
+    }
     try {
-      const rows = await api.get<InstitutionRow[]>('/institutions', { token })
-      setInstitutions(Array.isArray(rows) ? rows : [])
+      const [insts, orgs] = await Promise.all([
+        api.get<InstitutionRow[]>('/institutions', { token }),
+        api.get<NgoRow[]>('/ngo-institutions', { token }),
+      ])
+      setInstitutions(Array.isArray(insts) ? insts : [])
+      setNgos(Array.isArray(orgs) ? orgs : [])
     } catch (err) {
-      setMsg(err instanceof ApiError ? getApiErrorMessage(err.body) : 'Error al cargar instituciones')
+      setMsg(err instanceof ApiError ? getApiErrorMessage(err.body) : 'Error al cargar datos')
     } finally {
       setLoading(false)
     }
   }, [token])
 
   useEffect(() => {
-    loadInstitutions()
-  }, [loadInstitutions])
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadAllData()
+  }, [loadAllData])
 
   async function createInstitution(e: FormEvent) {
     e.preventDefault()
@@ -65,7 +95,7 @@ export function SuperHome() {
       setMsg(`Institucion creada: ID ${data.id}, codigo ${data.code} (estado draft).`)
       setInstName('')
       setInstCode('')
-      await loadInstitutions()
+      await loadAllData()
     } catch (err) {
       setMsg(err instanceof ApiError ? getApiErrorMessage(err.body) : 'Error')
     }
@@ -83,7 +113,7 @@ export function SuperHome() {
     try {
       await api.patch(`/institutions/${id}/status`, { json: { status: statusValue }, token })
       setMsg(`Institucion ${id} → ${statusValue}.`)
-      await loadInstitutions()
+      await loadAllData()
     } catch (err) {
       setMsg(err instanceof ApiError ? getApiErrorMessage(err.body) : 'Error')
     }
@@ -112,7 +142,97 @@ export function SuperHome() {
       setAdminName('')
       setAdminEmail('')
       setAdminPassword('')
-      await loadInstitutions()
+      await loadAllData()
+    } catch (err) {
+      setMsg(err instanceof ApiError ? getApiErrorMessage(err.body) : 'Error')
+    }
+  }
+
+  async function createNgo(e: FormEvent) {
+    e.preventDefault()
+    if (!token) return
+    setMsg(null)
+    try {
+      const data = await api.post<{ id: number; code: string }>('/ngo-institutions', {
+        json: { name: ngoName.trim(), code: ngoCode.trim(), status: true },
+        token,
+      })
+      setMsg(`ONG creada: ID ${data.id}, codigo ${data.code}.`)
+      setNgoName('')
+      setNgoCode('')
+      await loadAllData()
+    } catch (err) {
+      setMsg(err instanceof ApiError ? getApiErrorMessage(err.body) : 'Error')
+    }
+  }
+
+  async function patchNgoStatus(id: number, currentStatus: boolean) {
+    if (!token) return
+    setMsg(null)
+    try {
+      await api.patch(`/ngo-institutions/${id}/status`, {
+        json: { status: !currentStatus },
+        token,
+      })
+      setMsg(`Estado de ONG ${id} actualizado.`)
+      await loadAllData()
+    } catch (err) {
+      setMsg(err instanceof ApiError ? getApiErrorMessage(err.body) : 'Error')
+    }
+  }
+
+  async function bootstrapNgoAdmin(e: FormEvent) {
+    e.preventDefault()
+    if (!token) return
+    setMsg(null)
+    const id = Number(bootstrapNgoId)
+    if (!Number.isInteger(id) || id <= 0) {
+      setMsg('ID de ONG invalido')
+      return
+    }
+    try {
+      await api.post(`/ngo-institutions/${id}/bootstrap-ngo-admin`, {
+        json: {
+          fullName: ngoAdminName.trim(),
+          email: ngoAdminEmail.trim(),
+          password: ngoAdminPassword,
+        },
+        token,
+      })
+      setMsg(`Admin de ONG creado para la ONG ${id}.`)
+      setBootstrapNgoId('')
+      setNgoAdminName('')
+      setNgoAdminEmail('')
+      setNgoAdminPassword('')
+      await loadAllData()
+    } catch (err) {
+      setMsg(err instanceof ApiError ? getApiErrorMessage(err.body) : 'Error')
+    }
+  }
+
+  async function assignNgoAdmin(e: FormEvent) {
+    e.preventDefault()
+    if (!token) return
+    setMsg(null)
+    const nid = Number(assignNgoId)
+    const uid = Number(assignNgoUserId)
+    if (!Number.isInteger(nid) || nid <= 0) {
+      setMsg('ID de ONG invalido')
+      return
+    }
+    if (!Number.isInteger(uid) || uid <= 0) {
+      setMsg('ID de usuario invalido')
+      return
+    }
+    try {
+      await api.patch(`/ngo-institutions/${nid}/assign-user`, {
+        json: { userId: uid },
+        token,
+      })
+      setMsg(`Usuario ${uid} asignado como administrador de la ONG ${nid}.`)
+      setAssignNgoId('')
+      setAssignNgoUserId('')
+      await loadAllData()
     } catch (err) {
       setMsg(err instanceof ApiError ? getApiErrorMessage(err.body) : 'Error')
     }
@@ -123,36 +243,37 @@ export function SuperHome() {
       <ExecutiveHero
         eyebrow="Panel super admin"
         title="Gobernanza multi-institucion"
-        subtitle="Configura instituciones, habilita operacion y asegura arranque controlado de cada sede."
+        subtitle="Configura instituciones y ONGs, habilita operacion y asegura arranque de cada sede."
       />
       <KpiStrip
         items={[
           { label: 'Instituciones', value: formatId(institutions.length), hint: 'Total registradas' },
           {
-            label: 'Activas',
+            label: 'Inst. Activas',
             value: formatId(institutions.filter((institution) => institution.status === 'active').length),
             hint: 'Operativas actualmente',
           },
           {
-            label: 'Borrador',
-            value: formatId(institutions.filter((institution) => institution.status === 'draft').length),
-            hint: 'Pendientes de activacion',
+            label: 'ONGs registradas',
+            value: formatId(ngos.length),
+            hint: 'Organizaciones cargadas',
           },
         ]}
       />
       {msg && <div className="alert alert-info text-sm">{msg}</div>}
 
-      <SectionCard
-        title="Instituciones"
-        subtitle="Visibilidad ejecutiva del estado operativo por sede."
-        actions={
-          <button type="button" className="btn btn-outline btn-sm gap-1" onClick={() => loadInstitutions()}>
-            <HiArrowPath className="h-4 w-4" aria-hidden />
-            Actualizar
-          </button>
-        }
-        titleIcon={<HiBuildingOffice2 aria-hidden />}
-      >
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <SectionCard
+          title="Instituciones"
+          subtitle="Visibilidad ejecutiva del estado operativo por sede."
+          actions={
+            <button type="button" className="btn btn-outline btn-sm gap-1" onClick={() => void loadAllData(true)}>
+              <HiArrowPath className="h-4 w-4" aria-hidden />
+              Actualizar
+            </button>
+          }
+          titleIcon={<HiBuildingOffice2 aria-hidden />}
+        >
           {loading ? (
             <div className="flex min-h-16 items-center">
               <span className="loading loading-spinner loading-sm" aria-label="Cargando" />
@@ -177,7 +298,7 @@ export function SuperHome() {
                       <td>{institution.name}</td>
                       <td>{institution.code}</td>
                       <td>
-                        <span className="badge badge-ghost badge-sm">
+                        <span className={`badge badge-sm ${institution.status === 'active' ? 'badge-success' : 'badge-neutral'}`}>
                           {INSTITUTION_STATUS_LABELS[institution.status] ?? institution.status}
                         </span>
                       </td>
@@ -187,14 +308,73 @@ export function SuperHome() {
               </table>
             </div>
           )}
-      </SectionCard>
+        </SectionCard>
 
-      <SectionCard
-        title="Crear institucion (draft)"
-        subtitle="Da de alta nuevas sedes con codigo unico para control de despliegue."
-        titleIcon={<HiPlusCircle aria-hidden />}
-      >
-          <form className="mt-2 grid max-w-xl gap-4" onSubmit={createInstitution}>
+        <SectionCard
+          title="ONGs"
+          subtitle="Visibilidad de las organizaciones no gubernamentales registradas."
+          actions={
+            <button type="button" className="btn btn-outline btn-sm gap-1" onClick={() => void loadAllData(true)}>
+              <HiArrowPath className="h-4 w-4" aria-hidden />
+              Actualizar
+            </button>
+          }
+          titleIcon={<HiGlobeAlt aria-hidden />}
+        >
+          {loading ? (
+            <div className="flex min-h-16 items-center">
+              <span className="loading loading-spinner loading-sm" aria-label="Cargando" />
+            </div>
+          ) : ngos.length === 0 ? (
+            <EmptyState title="Sin ONGs registradas." detail="Crea una ONG para habilitar su administración." />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="table table-zebra table-sm">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Nombre</th>
+                    <th>Codigo</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ngos.map((ngo) => (
+                    <tr key={ngo.id}>
+                      <th>{formatId(ngo.id)}</th>
+                      <td>{ngo.name}</td>
+                      <td>{ngo.code}</td>
+                      <td>
+                        <span className={`badge badge-sm ${ngo.status ? 'badge-success' : 'badge-neutral'}`}>
+                          {ngo.status ? 'Activa' : 'Inactiva'}
+                        </span>
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          className={`btn btn-xs ${ngo.status ? 'btn-neutral' : 'btn-primary'}`}
+                          onClick={() => void patchNgoStatus(ngo.id, ngo.status)}
+                        >
+                          {ngo.status ? 'Desactivar' : 'Activar'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </SectionCard>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <SectionCard
+          title="Crear institucion (draft)"
+          subtitle="Da de alta nuevas sedes con codigo unico para control de despliegue."
+          titleIcon={<HiPlusCircle aria-hidden />}
+        >
+          <form className="mt-2 grid gap-4" onSubmit={createInstitution}>
             <label className="form-control w-full">
               <div className="label pt-0">
                 <span className="label-text">Nombre</span>
@@ -223,14 +403,52 @@ export function SuperHome() {
               Crear
             </button>
           </form>
-      </SectionCard>
+        </SectionCard>
 
-      <SectionCard
-        title="Activar / desactivar institucion"
-        subtitle="Controla disponibilidad operativa y riesgo de cambios."
-        titleIcon={<HiPower aria-hidden />}
-      >
-          <form className="mt-2 grid max-w-xl gap-4" onSubmit={patchStatus}>
+        <SectionCard
+          title="Crear ONG"
+          subtitle="Da de alta una nueva organización no gubernamental."
+          titleIcon={<HiPlusCircle aria-hidden />}
+        >
+          <form className="mt-2 grid gap-4" onSubmit={createNgo}>
+            <label className="form-control w-full">
+              <div className="label pt-0">
+                <span className="label-text">Nombre</span>
+              </div>
+              <input
+                value={ngoName}
+                onChange={(e) => setNgoName(e.target.value)}
+                required
+                minLength={2}
+                className="input input-bordered w-full"
+              />
+            </label>
+            <label className="form-control w-full">
+              <div className="label pt-0">
+                <span className="label-text">Codigo unico</span>
+              </div>
+              <input
+                value={ngoCode}
+                onChange={(e) => setNgoCode(e.target.value)}
+                required
+                minLength={2}
+                className="input input-bordered w-full"
+              />
+            </label>
+            <button type="submit" className="btn btn-primary w-fit">
+              Crear
+            </button>
+          </form>
+        </SectionCard>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <SectionCard
+          title="Activar / desactivar institucion"
+          subtitle="Controla disponibilidad operativa y riesgo de cambios."
+          titleIcon={<HiPower aria-hidden />}
+        >
+          <form className="mt-2 grid gap-4" onSubmit={patchStatus}>
             <label className="form-control w-full">
               <div className="label pt-0">
                 <span className="label-text">ID institucion</span>
@@ -259,14 +477,50 @@ export function SuperHome() {
               Guardar
             </button>
           </form>
-      </SectionCard>
+        </SectionCard>
 
-      <SectionCard
-        title="Bootstrap primer admin escolar"
-        subtitle="Asigna custodio inicial para habilitar operacion local segura."
-        titleIcon={<HiUserPlus aria-hidden />}
-      >
-          <form className="mt-2 grid max-w-xl gap-4" onSubmit={bootstrap}>
+        <SectionCard
+          title="Asociar Administrador de ONG"
+          subtitle="Asocia un Administrador de ONG existente ingresando su ID de usuario."
+          titleIcon={<HiUserPlus aria-hidden />}
+        >
+          <form className="mt-2 grid gap-4" onSubmit={assignNgoAdmin}>
+            <label className="form-control w-full">
+              <div className="label pt-0">
+                <span className="label-text">ID de ONG</span>
+              </div>
+              <input
+                value={assignNgoId}
+                onChange={(e) => setAssignNgoId(e.target.value)}
+                required
+                className="input input-bordered w-full"
+              />
+            </label>
+            <label className="form-control w-full">
+              <div className="label pt-0">
+                <span className="label-text">ID de Usuario</span>
+              </div>
+              <input
+                value={assignNgoUserId}
+                onChange={(e) => setAssignNgoUserId(e.target.value)}
+                required
+                className="input input-bordered w-full"
+              />
+            </label>
+            <button type="submit" className="btn btn-outline btn-primary w-fit">
+              Asociar Admin
+            </button>
+          </form>
+        </SectionCard>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <SectionCard
+          title="Bootstrap primer admin escolar"
+          subtitle="Asigna custodio inicial para habilitar operacion local segura."
+          titleIcon={<HiUserPlus aria-hidden />}
+        >
+          <form className="mt-2 grid gap-4" onSubmit={bootstrap}>
             <label className="form-control w-full">
               <div className="label pt-0">
                 <span className="label-text">ID institucion</span>
@@ -318,7 +572,67 @@ export function SuperHome() {
               Crear admin
             </button>
           </form>
-      </SectionCard>
+        </SectionCard>
+
+        <SectionCard
+          title="Bootstrap Administrador de ONG"
+          subtitle="Crea y bootstrap un nuevo administrador de la ONG."
+          titleIcon={<HiUserPlus aria-hidden />}
+        >
+          <form className="mt-2 grid gap-4" onSubmit={bootstrapNgoAdmin}>
+            <label className="form-control w-full">
+              <div className="label pt-0">
+                <span className="label-text">ID de ONG</span>
+              </div>
+              <input
+                value={bootstrapNgoId}
+                onChange={(e) => setBootstrapNgoId(e.target.value)}
+                required
+                className="input input-bordered w-full"
+              />
+            </label>
+            <label className="form-control w-full">
+              <div className="label pt-0">
+                <span className="label-text">Nombre completo</span>
+              </div>
+              <input
+                value={ngoAdminName}
+                onChange={(e) => setNgoAdminName(e.target.value)}
+                required
+                className="input input-bordered w-full"
+              />
+            </label>
+            <label className="form-control w-full">
+              <div className="label pt-0">
+                <span className="label-text">Correo</span>
+              </div>
+              <input
+                type="email"
+                value={ngoAdminEmail}
+                onChange={(e) => setNgoAdminEmail(e.target.value)}
+                required
+                className="input input-bordered w-full"
+              />
+            </label>
+            <label className="form-control w-full">
+              <div className="label pt-0">
+                <span className="label-text">Contrasena</span>
+              </div>
+              <input
+                type="password"
+                value={ngoAdminPassword}
+                onChange={(e) => setNgoAdminPassword(e.target.value)}
+                required
+                minLength={8}
+                className="input input-bordered w-full"
+              />
+            </label>
+            <button type="submit" className="btn btn-primary w-fit">
+              Crear admin
+            </button>
+          </form>
+        </SectionCard>
+      </div>
     </div>
   )
 }

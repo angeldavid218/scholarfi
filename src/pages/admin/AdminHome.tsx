@@ -60,16 +60,19 @@ export function AdminHome() {
   }, [searchInput])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setRosterPage(1)
   }, [debouncedSearch])
 
   useEffect(() => {
     firstLoadDone.current = false
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setRefreshNonce(0)
   }, [token])
 
   useEffect(() => {
     if (!token) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoading(false)
       setSummary(null)
       setRoster([])
