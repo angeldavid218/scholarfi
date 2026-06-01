@@ -15,6 +15,7 @@ export function HomeRedirect() {
 
   const roles = profile?.roles ?? []
   if (roles.includes('super_admin')) return <Navigate to="/super" replace />
+  if (roles.includes('ngo_admin')) return <Navigate to="/ngo" replace />
   if (roles.includes('school_admin')) return <Navigate to="/admin" replace />
   if (roles.includes('teacher')) return <Navigate to="/teacher" replace />
   if (roles.includes('student')) return <Navigate to="/student" replace />
