@@ -16,6 +16,7 @@ import { SuperHome } from './pages/super/SuperHome'
 import { TeacherHome } from './pages/teacher/TeacherHome'
 import { TeacherValidationQueuePage } from './pages/teacher/TeacherValidationQueuePage'
 import { NgoHome } from './pages/ngo/NgoHome'
+import { NgoFundingProgramsPage } from './pages/ngo/NgoFundingProgramsPage'
 
 export default function App() {
   return (
@@ -42,6 +43,7 @@ export default function App() {
           </Route>
           <Route element={<RoleGate allow={['ngo_admin']} />}>
             <Route path="ngo" element={<NgoHome />} />
+            <Route path="ngo/programas" element={<NgoFundingProgramsPage />} />
           </Route>
           <Route element={<RoleGate allow={['super_admin']} />}>
             <Route path="super" element={<SuperHome />} />

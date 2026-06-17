@@ -3,6 +3,7 @@ import type { IconType } from 'react-icons'
 import {
   HiAcademicCap,
   HiArrowRightOnRectangle,
+  HiBanknotes,
   HiBars3,
   HiBuildingOffice2,
   HiClipboardDocumentCheck,
@@ -74,6 +75,16 @@ export function AppShell() {
     ]
     : []
 
+  const ngoFundingProgramItems: NavItem[] = roles.includes('ngo_admin')
+    ? [
+      {
+        to: '/ngo/programas',
+        label: 'Programas de financiamiento',
+        Icon: HiBanknotes,
+      },
+    ]
+    : []
+
   function renderNavLink(item: NavItem) {
     const Icon = item.Icon
     return (
@@ -122,6 +133,20 @@ export function AppShell() {
                     Institución
                   </p>
                   <p className="truncate text-sm font-semibold text-primary">{profile.institutionName}</p>
+                </div>
+              </div>
+            ) : null}
+            {profile?.ngoInstitutionName ? (
+              <div
+                className="ml-0.5 flex min-w-0 max-w-[min(48vw,12rem)] items-center gap-1.5 rounded-lg border border-secondary/30 bg-secondary/[0.09] py-1 pl-2 pr-2 shadow-[inset_0_1px_0_0_color-mix(in_oklab,var(--color-secondary)_18%,transparent)] sm:max-w-[14rem] md:max-w-[18rem]"
+                title={profile.ngoInstitutionName}
+              >
+                <HiGlobeAlt className="h-4 w-4 shrink-0 text-secondary" aria-hidden />
+                <div className="min-w-0 leading-tight">
+                  <p className="text-[0.65rem] font-bold uppercase leading-none tracking-wide text-secondary/80">
+                    ONG
+                  </p>
+                  <p className="truncate text-sm font-semibold text-secondary">{profile.ngoInstitutionName}</p>
                 </div>
               </div>
             ) : null}
@@ -207,6 +232,19 @@ export function AppShell() {
                 </p>
                 <ul className="space-y-0.5">
                   {schoolAdminBitacoraItems.map((item) => (
+                    <li key={item.to}>{renderNavLink(item)}</li>
+                  ))}
+                </ul>
+              </nav>
+            ) : null}
+
+            {ngoFundingProgramItems.length > 0 ? (
+              <nav aria-label="Programas de financiamiento">
+                <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wide text-base-content/50">
+                  Programas de financiamiento
+                </p>
+                <ul className="space-y-0.5">
+                  {ngoFundingProgramItems.map((item) => (
                     <li key={item.to}>{renderNavLink(item)}</li>
                   ))}
                 </ul>

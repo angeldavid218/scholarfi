@@ -19,6 +19,8 @@ export type Profile = {
   initials: string | null
   institutionId: number | null
   institutionName: string | null
+  ngoInstitutionId: number | null
+  ngoInstitutionName: string | null
   roles: string[]
 }
 

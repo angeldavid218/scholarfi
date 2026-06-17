@@ -9,6 +9,8 @@ export const SUBMISSION_STATUS_KEYS = [
 export type SubmissionStatusKey = (typeof SUBMISSION_STATUS_KEYS)[number]
 export type TaskStatusKey = 'active' | 'closed'
 export type InstitutionStatusKey = 'draft' | 'active' | 'inactive'
+export type FundingProgramStatusKey = 'draft' | 'active' | 'completed'
+export type FundingProgramAllocationKey = 'equal' | 'manual'
 
 /** English name of the program unit of account (students earn Credits). */
 export const CREDIT_TOKEN_NAME = 'Credit'
@@ -61,11 +63,42 @@ export const INSTITUTION_STATUS_LABELS: Record<InstitutionStatusKey, string> = {
   inactive: 'Inactiva',
 }
 
+export const FUNDING_PROGRAM_STATUS_LABELS: Record<FundingProgramStatusKey, string> = {
+  draft: 'Borrador',
+  active: 'Activo',
+  completed: 'Completado',
+}
+
+export const FUNDING_PROGRAM_ALLOCATION_LABELS: Record<FundingProgramAllocationKey, string> = {
+  equal: 'Reparto igualitario',
+  manual: 'Reparto manual',
+}
+
+export type BudgetAllocationStatusKey = 'active' | 'suspended' | 'closed'
+
+export const BUDGET_ALLOCATION_STATUS_LABELS: Record<BudgetAllocationStatusKey, string> = {
+  active: 'Activa',
+  suspended: 'Suspendida',
+  closed: 'Cerrada',
+}
+
 const API_ERROR_CODE_MESSAGES: Record<string, string> = {
   INVALID_CREDENTIALS: 'Credenciales invalidas.',
   VALIDATION_ERROR: 'Revisa los campos y vuelve a intentar.',
   INSTITUTION_CODE_TAKEN: 'Ese codigo de institucion ya existe.',
   NGO_INSTITUTION_CODE_TAKEN: 'Ese codigo de ONG ya existe.',
+  NGO_SCOPE_REQUIRED: 'Tu usuario no esta asignado a una ONG.',
+  NGO_INSTITUTION_INACTIVE: 'La ONG no esta activa.',
+  INVALID_DATE_RANGE: 'La fecha de fin debe ser posterior o igual a la de inicio.',
+  FUNDING_PROGRAM_NOT_FOUND: 'Programa de financiamiento no encontrado.',
+  BUDGET_EXCEEDS_PROGRAM_TOTAL: 'El total asignado supera el presupuesto del programa.',
+  ALLOCATION_ALREADY_EXISTS: 'Una o más escuelas ya tienen asignación en este programa.',
+  FUNDING_PROGRAM_COMPLETED: 'Los programas completados no admiten cambios.',
+  ALLOCATED_BELOW_UTILIZED: 'El presupuesto asignado no puede ser menor al utilizado.',
+  BUDGET_ALLOCATION_NOT_FOUND: 'Asignación de presupuesto no encontrada.',
+  BUDGET_ALLOCATION_CLOSED: 'Las asignaciones cerradas no pueden editarse.',
+  INVALID_ALLOCATION_PAYLOAD: 'Revisa los datos de asignación enviados.',
+  DUPLICATE_INSTITUTION: 'Cada escuela solo puede asignarse una vez por programa.',
   INSTITUTION_NOT_FOUND: 'La institucion no existe.',
   INSTITUTION_INACTIVE: 'La institucion no esta activa.',
   TENANT_SCOPE_VIOLATION: 'No tienes permiso para acceder a ese recurso.',

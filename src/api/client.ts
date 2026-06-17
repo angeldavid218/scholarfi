@@ -75,9 +75,40 @@ export async function apiRequest<T>(
   return unwrapEnvelope<T>(parsed)
 }
 
+async function apiRequestRaw<T>(
+  method: string,
+  path: string,
+  options: {
+    token?: string | null
+    body?: BodyInit | null
+    headers?: HeadersInit
+  } = {}
+): Promise<T> {
+  const url = path.startsWith('http') ? path : `${baseUrl}${path.startsWith('/') ? path : `/${path}`}`
+  const headers = new Headers(options.headers)
+  headers.set('Accept', 'application/json')
+  if (options.body !== undefined && options.body !== null && !(options.body instanceof FormData)) {
+    if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
+  }
+  if (options.token) headers.set('Authorization', `Bearer ${options.token}`)
+
+  const res = await fetch(url, { method, headers, body: options.body ?? null })
+  const parsed = await parseJsonResponse(res)
+
+  if (!res.ok) {
+    throw new ApiError(res.status, parsed)
+  }
+
+  return parsed as T
+}
+
 export const api = {
   get: <T>(path: string, opts?: { token?: string | null }) =>
     apiRequest<T>('GET', path, { token: opts?.token }),
+
+  /** Returns parsed JSON without unwrapping `{ data }` — for responses with extra top-level fields. */
+  getRaw: <T>(path: string, opts?: { token?: string | null }) =>
+    apiRequestRaw<T>('GET', path, { token: opts?.token }),
 
   post: <T>(path: string, opts?: { json?: unknown; token?: string | null }) =>
     apiRequest<T>('POST', path, {
