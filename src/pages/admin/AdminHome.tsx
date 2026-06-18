@@ -12,6 +12,12 @@ type HistorySummary = {
   creditsTotal: number
 }
 
+type FundingBalance = {
+  availableBudget: number
+  allocatedBudget: number
+  utilizedBudget: number
+}
+
 type RosterRow = {
   id: number
   email: string
@@ -32,6 +38,7 @@ function formatRolesEs(roles: string[]): string {
 export function AdminHome() {
   const { token } = useAuth()
   const [summary, setSummary] = useState<HistorySummary | null>(null)
+  const [fundingBalance, setFundingBalance] = useState<FundingBalance | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
@@ -75,6 +82,7 @@ export function AdminHome() {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoading(false)
       setSummary(null)
+      setFundingBalance(null)
       setRoster([])
       setRosterMeta(null)
       return
@@ -91,12 +99,14 @@ export function AdminHome() {
           perPage: String(rosterPerPage),
         })
         if (debouncedSearch) params.set('search', debouncedSearch)
-        const [s, r] = await Promise.all([
+        const [s, funding, r] = await Promise.all([
           api.get<HistorySummary>('/rewards/history/summary', { token }),
+          api.get<FundingBalance>('/institutions/funding-balance', { token }),
           api.get<PaginatedPayload<RosterRow>>(`/institutions/users?${params}`, { token }),
         ])
         if (cancelled) return
         setSummary(s)
+        setFundingBalance(funding)
         setRoster(r.items)
         setRosterMeta(r.meta)
         firstLoadDone.current = true
@@ -171,6 +181,8 @@ export function AdminHome() {
 
   const txCount = summary?.transactionCount ?? 0
   const creditsTotal = summary?.creditsTotal ?? 0
+  const availableBudget = fundingBalance?.availableBudget ?? 0
+  const utilizedBudget = fundingBalance?.utilizedBudget ?? 0
 
   return (
     <div className="space-y-6">
@@ -181,6 +193,16 @@ export function AdminHome() {
       />
       <KpiStrip
         items={[
+          {
+            label: 'Presupuesto disponible',
+            value: formatCreditsWithUnit(availableBudget),
+            hint: 'Financiamiento ONG que puedes gastar en recompensas',
+          },
+          {
+            label: 'Presupuesto utilizado',
+            value: formatCreditsWithUnit(utilizedBudget),
+            hint: 'Ya otorgado mediante aprobaciones de envíos',
+          },
           { label: 'Cola aprobacion', value: 'Ver modulo', hint: 'Seccion dedicada en sidebar' },
           {
             label: 'Movimientos',

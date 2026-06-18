@@ -334,6 +334,7 @@ export function NgoSchoolBudgetAllocationSection({
           <>
             {summary ? (
               <KpiStrip
+                className="mt-5"
                 items={[
                   {
                     label: 'Presupuesto total',
@@ -511,9 +512,8 @@ export function NgoSchoolBudgetAllocationSection({
                 {allocationMsg ? (
                   <div
                     role="status"
-                    className={`alert text-sm ${
-                      allocationMsg.includes('correctamente') ? 'alert-success' : 'alert-error'
-                    }`}
+                    className={`alert text-sm ${allocationMsg.includes('correctamente') ? 'alert-success' : 'alert-error'
+                      }`}
                   >
                     {allocationMsg}
                   </div>

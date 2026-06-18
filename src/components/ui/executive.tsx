@@ -18,6 +18,7 @@ type KpiItem = {
 
 type KpiStripProps = {
   items: KpiItem[]
+  className?: string
 }
 
 type SectionCardProps = {
@@ -46,9 +47,9 @@ export function ExecutiveHero({ eyebrow, title, subtitle, actions, leadingIcon }
   )
 }
 
-export function KpiStrip({ items }: KpiStripProps) {
+export function KpiStrip({ items, className }: KpiStripProps) {
   return (
-    <section className="sf-kpi-strip" aria-label="Indicadores clave">
+    <section className={`sf-kpi-strip ${className}`} aria-label="Indicadores clave">
       {items.map((item) => (
         <article key={item.label} className="sf-kpi-item">
           <p className="sf-kpi-label">{item.label}</p>
@@ -82,9 +83,9 @@ export function SectionCard({ title, subtitle, actions, titleIcon, children }: S
   )
 }
 
-export function EmptyState({ title, detail }: { title: string; detail?: string }) {
+export function EmptyState({ title, detail, className }: { title: string; detail?: string; className?: string }) {
   return (
-    <div className="rounded-box border border-dashed border-base-300 bg-base-200/60 p-4 text-sm">
+    <div className={`rounded-box border border-dashed border-base-300 bg-base-200/60 p-4 text-sm ${className}`}>
       <div className="flex gap-3">
         <HiInbox className="mt-0.5 h-6 w-6 shrink-0 text-base-content/40" aria-hidden />
         <div>

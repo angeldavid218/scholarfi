@@ -4,6 +4,7 @@ import { api, ApiError, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
 import { ExecutiveHero, KpiStrip, SectionCard } from '../../components/ui/executive'
 import { formatId } from '../../i18n/format'
+import { NgoBudgetDistributionOverview } from './NgoBudgetDistributionOverview'
 
 type DashboardSummary = {
   totalSchools: number
@@ -20,6 +21,7 @@ export function NgoHome() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   const loadSummary = useCallback(async (showLoadingSpinner = false) => {
     if (!token) return
@@ -39,8 +41,13 @@ export function NgoHome() {
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadSummary()
+    void loadSummary()
   }, [loadSummary])
+
+  function handleRefresh() {
+    setRefreshKey((current) => current + 1)
+    void loadSummary(true)
+  }
 
   if (loading) {
     return (
@@ -59,7 +66,7 @@ export function NgoHome() {
           subtitle="Monitoreo consolidado del avance y gobernanza institucional del programa ScholarFi."
         />
         <div className="alert alert-error">{error}</div>
-        <button type="button" className="btn btn-primary" onClick={() => void loadSummary(true)}>
+        <button type="button" className="btn btn-primary" onClick={handleRefresh}>
           Reintentar
         </button>
       </div>
@@ -121,7 +128,7 @@ export function NgoHome() {
           <button
             type="button"
             className="btn btn-outline btn-primary btn-sm gap-1"
-            onClick={() => void loadSummary(true)}
+            onClick={handleRefresh}
           >
             <HiArrowPath className="h-4 w-4" aria-hidden />
             Actualizar
@@ -150,6 +157,8 @@ export function NgoHome() {
           </div>
         </SectionCard>
       </div>
+
+      <NgoBudgetDistributionOverview key={refreshKey} />
     </div>
   )
 }

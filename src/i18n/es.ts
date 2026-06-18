@@ -97,6 +97,11 @@ const API_ERROR_CODE_MESSAGES: Record<string, string> = {
   ALLOCATED_BELOW_UTILIZED: 'El presupuesto asignado no puede ser menor al utilizado.',
   BUDGET_ALLOCATION_NOT_FOUND: 'Asignación de presupuesto no encontrada.',
   BUDGET_ALLOCATION_CLOSED: 'Las asignaciones cerradas no pueden editarse.',
+  NO_ALLOCATIONS: 'Debes asignar al menos una escuela antes de activar el programa.',
+  INCOMPLETE_ALLOCATION: 'Debes asignar todo el presupuesto del programa antes de activarlo.',
+  FUNDING_PROGRAM_STATUS_LOCKED: 'Un programa activo no puede volver a borrador.',
+  INSUFFICIENT_FUNDING_BALANCE:
+    'No hay presupuesto ONG disponible para otorgar esta recompensa.',
   INVALID_ALLOCATION_PAYLOAD: 'Revisa los datos de asignación enviados.',
   DUPLICATE_INSTITUTION: 'Cada escuela solo puede asignarse una vez por programa.',
   INSTITUTION_NOT_FOUND: 'La institucion no existe.',

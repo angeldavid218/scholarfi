@@ -6,6 +6,7 @@ import {
   HiCheckCircle,
   HiCurrencyDollar,
   HiDocumentText,
+  HiPlay,
   HiPlusCircle,
   HiScale,
 } from 'react-icons/hi2'
@@ -96,7 +97,9 @@ export function NgoFundingProgramsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
+  const [listMsg, setListMsg] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [activatingProgramId, setActivatingProgramId] = useState<number | null>(null)
 
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -104,7 +107,6 @@ export function NgoFundingProgramsPage() {
   const [allocationType, setAllocationType] = useState<'equal' | 'manual'>('equal')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
-  const [status, setStatus] = useState<'draft' | 'active'>('draft')
 
   const loadPrograms = useCallback(
     async (showLoadingSpinner = false) => {
@@ -160,7 +162,7 @@ export function NgoFundingProgramsPage() {
           allocationType,
           startDate,
           endDate,
-          status,
+          status: 'draft',
         },
       })
       setMsg(`Programa creado: ${created.name}`)
@@ -170,12 +172,36 @@ export function NgoFundingProgramsPage() {
       setAllocationType('equal')
       setStartDate('')
       setEndDate('')
-      setStatus('draft')
       await loadPrograms()
     } catch (err) {
       setMsg(err instanceof ApiError ? getApiErrorMessage(err.body) : 'Error al crear el programa')
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  async function activateProgram(program: FundingProgram) {
+    if (!token) return
+    if (program.status !== 'draft') {
+      setListMsg('Solo los programas en borrador pueden activarse.')
+      return
+    }
+
+    setListMsg(null)
+    setActivatingProgramId(program.id)
+    try {
+      await api.patch<FundingProgram>(`/funding-programs/${program.id}`, {
+        token,
+        json: { status: 'active' },
+      })
+      setListMsg(`Programa activado: ${program.name}`)
+      await loadPrograms()
+    } catch (err) {
+      setListMsg(
+        err instanceof ApiError ? getApiErrorMessage(err.body) : 'Error al activar el programa'
+      )
+    } finally {
+      setActivatingProgramId(null)
     }
   }
 
@@ -368,21 +394,9 @@ export function NgoFundingProgramsPage() {
               </label>
             </div>
 
-            <div className="form-control w-full max-w-md">
-              <FieldLabel
-                label="Estado inicial"
-                hint="Borrador permite revisar antes de activar"
-                htmlFor="program-status"
-              />
-              <select
-                id="program-status"
-                className="select select-bordered w-full bg-base-100"
-                value={status}
-                onChange={(e) => setStatus(e.target.value as 'draft' | 'active')}
-              >
-                <option value="draft">{FUNDING_PROGRAM_STATUS_LABELS.draft}</option>
-                <option value="active">{FUNDING_PROGRAM_STATUS_LABELS.active}</option>
-              </select>
+            <div className="rounded-lg border border-base-300/80 bg-base-200/40 px-3 py-2 text-sm text-base-content/70">
+              Los programas nuevos se crean en <strong>borrador</strong>. Actívalos desde el listado
+              cuando estén listos; un programa activo no puede volver a borrador.
             </div>
           </FormSection>
 
@@ -426,7 +440,19 @@ export function NgoFundingProgramsPage() {
             detail="Crea tu primer programa de financiamiento con el formulario superior."
           />
         ) : (
-          <div className="mt-4 overflow-x-auto">
+          <div className="mt-4 space-y-3">
+            {listMsg ? (
+              <div
+                role="status"
+                className={`alert text-sm ${
+                  listMsg.startsWith('Programa activado') ? 'alert-success' : 'alert-error'
+                }`}
+              >
+                {listMsg}
+              </div>
+            ) : null}
+
+            <div className="overflow-x-auto">
             <table className="table table-zebra">
               <thead>
                 <tr>
@@ -436,6 +462,7 @@ export function NgoFundingProgramsPage() {
                   <th>Reparto</th>
                   <th>Periodo</th>
                   <th>Estado</th>
+                  <th />
                 </tr>
               </thead>
               <tbody>
@@ -458,10 +485,32 @@ export function NgoFundingProgramsPage() {
                         {FUNDING_PROGRAM_STATUS_LABELS[program.status]}
                       </span>
                     </td>
+                    <td className="text-right">
+                      {program.status === 'draft' ? (
+                        <button
+                          type="button"
+                          className="btn btn-primary btn-xs gap-1"
+                          disabled={activatingProgramId === program.id}
+                          onClick={() => void activateProgram(program)}
+                        >
+                          {activatingProgramId === program.id ? (
+                            <span className="loading loading-spinner loading-xs" aria-hidden />
+                          ) : (
+                            <HiPlay className="h-3.5 w-3.5" aria-hidden />
+                          )}
+                          Activar
+                        </button>
+                      ) : program.status === 'active' ? (
+                        <span className="text-xs text-base-content/50">Activo</span>
+                      ) : (
+                        <span className="text-xs text-base-content/50">Completado</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         )}
       </SectionCard>
