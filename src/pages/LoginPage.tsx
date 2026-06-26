@@ -68,7 +68,7 @@ export function LoginPage() {
               Libro mayor del merito escolar
             </h1>
             <p className="mt-4 max-w-md text-sm leading-relaxed text-primary-content/95">
-              Gobernanza clara, colas de validacion y Credit para los estudiantes — sin ruido de cadena. Accede con tu cuenta
+              Gobernanza clara, colas de validacion y ScholarFi Credits para los estudiantes. Accede con tu cuenta
               institucional.
             </p>
             <div className="mt-6 rounded-box border border-white/15 bg-base-content/10 p-4 backdrop-blur-[2px]">

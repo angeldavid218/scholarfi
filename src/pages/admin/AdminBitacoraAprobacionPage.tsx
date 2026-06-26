@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
-import { HiArrowPath, HiBanknotes } from 'react-icons/hi2'
+import { HiArrowPath, HiArrowTopRightOnSquare, HiBanknotes } from 'react-icons/hi2'
 import { api, ApiError, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
 import { EmptyState, ExecutiveHero, SectionCard } from '../../components/ui/executive'
 import { TablePagination } from '../../components/ui/TablePagination'
 import { formatCreditsWithUnit, formatId } from '../../i18n/format'
 import { formatRelativeDate } from '../../utils/dates'
+import { solscanTxUrl } from '../../utils/solanaExplorer'
 import type { PaginatedMeta, PaginatedPayload } from '../../types'
 
 type RewardRow = {
@@ -15,6 +16,8 @@ type RewardRow = {
   studentName: string
   amount: number
   postedAt: string | null
+  provider?: string
+  transactionSignature?: string | null
 }
 
 type RewardsHistorySummary = {
@@ -24,9 +27,11 @@ type RewardsHistorySummary = {
 
 /**
  * School admin approval ledger: Credit posted after final admin approval.
+ * On-chain proof column: set `VITE_TOKEN_MODE=solana` on the frontend build to match backend `TOKEN_MODE`.
  */
 export function AdminBitacoraAprobacionPage() {
   const { token } = useAuth()
+  const solanaUiEnabled = import.meta.env.VITE_TOKEN_MODE === 'solana'
   const [history, setHistory] = useState<RewardRow[]>([])
   const [historyMeta, setHistoryMeta] = useState<PaginatedMeta | null>(null)
   const [summary, setSummary] = useState<RewardsHistorySummary | null>(null)
@@ -114,24 +119,54 @@ export function AdminBitacoraAprobacionPage() {
                     <th>Estudiante</th>
                     <th>Créditos</th>
                     <th>Publicado</th>
+                    {solanaUiEnabled ? <th className="whitespace-nowrap">Comprobante</th> : null}
                   </tr>
                 </thead>
                 <tbody>
-                  {history.map((r) => (
-                    <tr key={r.id}>
-                      <th>{formatId(r.id)}</th>
-                      <td>{formatId(r.submissionId)}</td>
-                      <td>{r.studentName}</td>
-                      <td className="font-medium tabular-nums text-secondary">
-                        {formatCreditsWithUnit(r.amount)}
-                      </td>
-                      <td className="text-xs text-base-content/70">
-                        <span title={r.postedAt ?? undefined}>
-                          {r.postedAt ? formatRelativeDate(new Date(r.postedAt)) : '—'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {history.map((r) => {
+                    const hasTxProof =
+                      r.provider === 'solana' &&
+                      typeof r.transactionSignature === 'string' &&
+                      r.transactionSignature.length > 0
+                    const explorerUrl = hasTxProof ? solscanTxUrl(r.transactionSignature!) : null
+
+                    return (
+                      <tr key={r.id}>
+                        <th>{formatId(r.id)}</th>
+                        <td>{formatId(r.submissionId)}</td>
+                        <td>{r.studentName}</td>
+                        <td className="font-medium tabular-nums text-secondary">
+                          {formatCreditsWithUnit(r.amount)}
+                        </td>
+                        <td className="text-xs text-base-content/70">
+                          <span title={r.postedAt ?? undefined}>
+                            {r.postedAt ? formatRelativeDate(new Date(r.postedAt)) : '—'}
+                          </span>
+                        </td>
+                        {solanaUiEnabled ? (
+                          <td className="text-xs">
+                            {hasTxProof && explorerUrl ? (
+                              <a
+                                href={explorerUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex max-w-[14rem] items-center gap-2 text-primary underline-offset-2 hover:underline"
+                                title="Abrir comprobante en Solscan (nueva pestaña)"
+                              >
+                                <span className="truncate font-medium text-base-content/85">
+                                  Detalles de transacción
+                                </span>
+                                <HiArrowTopRightOnSquare className="h-4 w-4 shrink-0" aria-hidden />
+                                <span className="sr-only">(abre Solscan en una pestaña nueva)</span>
+                              </a>
+                            ) : (
+                              <span className="text-base-content/50">—</span>
+                            )}
+                          </td>
+                        ) : null}
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
