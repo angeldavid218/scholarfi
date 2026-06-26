@@ -15,6 +15,7 @@ import { SubmissionDetailPage } from './pages/student/SubmissionDetailPage'
 import { SuperHome } from './pages/super/SuperHome'
 import { TeacherHome } from './pages/teacher/TeacherHome'
 import { TeacherValidationQueuePage } from './pages/teacher/TeacherValidationQueuePage'
+import { NgoHome } from './pages/ngo/NgoHome'
 
 export default function App() {
   return (
@@ -38,6 +39,9 @@ export default function App() {
             <Route path="admin" element={<AdminHome />} />
             <Route path="admin/cola-aprobacion" element={<AdminApprovalQueuePage />} />
             <Route path="admin/bitacora-aprobacion" element={<AdminBitacoraAprobacionPage />} />
+          </Route>
+          <Route element={<RoleGate allow={['ngo_admin']} />}>
+            <Route path="ngo" element={<NgoHome />} />
           </Route>
           <Route element={<RoleGate allow={['super_admin']} />}>
             <Route path="super" element={<SuperHome />} />

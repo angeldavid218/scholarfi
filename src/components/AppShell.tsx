@@ -58,6 +58,11 @@ export function AppShell() {
         { to: '/admin/cola-aprobacion', label: 'Cola de aprobacion', Icon: HiClipboardDocumentCheck },
       ] as NavItem[])
       : []),
+    ...(roles.includes('ngo_admin')
+      ? ([
+        { to: '/ngo', end: true, label: 'Dashboard ONG', Icon: HiGlobeAlt },
+      ] as NavItem[])
+      : []),
     ...(roles.includes('super_admin') ? [{ to: '/super', label: 'Super admin', Icon: HiGlobeAlt } as NavItem] : []),
   ]
 

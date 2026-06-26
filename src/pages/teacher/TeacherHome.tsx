@@ -66,6 +66,7 @@ export function TeacherHome() {
   }, [token, tasksPage, tasksPerPage])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load()
   }, [load])
 
