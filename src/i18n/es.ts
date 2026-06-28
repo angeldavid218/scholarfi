@@ -61,6 +61,11 @@ export const INSTITUTION_STATUS_LABELS: Record<InstitutionStatusKey, string> = {
   inactive: 'Inactiva',
 }
 
+export const INSTITUTION_CRYPTO_WALLETS_LABELS = {
+  enabled: 'Habilitado',
+  disabled: 'Deshabilitado',
+} as const
+
 const API_ERROR_CODE_MESSAGES: Record<string, string> = {
   INVALID_CREDENTIALS: 'Credenciales invalidas.',
   VALIDATION_ERROR: 'Revisa los campos y vuelve a intentar.',
