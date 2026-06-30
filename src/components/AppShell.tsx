@@ -11,6 +11,7 @@ import {
   HiGlobeAlt,
   HiInboxStack,
   HiQueueList,
+  HiUserGroup,
 } from 'react-icons/hi2'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
@@ -49,6 +50,7 @@ export function AppShell() {
     ...(roles.includes('teacher')
       ? ([
         { to: '/teacher', end: true, label: 'Docente', Icon: HiClipboardDocumentList },
+        { to: '/teacher/clases', label: 'Mis clases', Icon: HiUserGroup },
         { to: '/teacher/cola-validacion', label: 'Cola de validacion', Icon: HiInboxStack },
       ] as NavItem[])
       : []),

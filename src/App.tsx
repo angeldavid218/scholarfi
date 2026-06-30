@@ -14,6 +14,7 @@ import { StudentTasksPage } from './pages/student/StudentTasksPage'
 import { SubmissionDetailPage } from './pages/student/SubmissionDetailPage'
 import { SuperHome } from './pages/super/SuperHome'
 import { TeacherHome } from './pages/teacher/TeacherHome'
+import { TeacherGroupsPage } from './pages/teacher/TeacherGroupsPage'
 import { TeacherValidationQueuePage } from './pages/teacher/TeacherValidationQueuePage'
 import { NgoHome } from './pages/ngo/NgoHome'
 
@@ -33,6 +34,7 @@ export default function App() {
           </Route>
           <Route element={<RoleGate allow={['teacher']} />}>
             <Route path="teacher" element={<TeacherHome />} />
+            <Route path="teacher/clases" element={<TeacherGroupsPage />} />
             <Route path="teacher/cola-validacion" element={<TeacherValidationQueuePage />} />
           </Route>
           <Route element={<RoleGate allow={['school_admin']} />}>
