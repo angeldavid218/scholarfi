@@ -12,7 +12,7 @@ type HeroProps = {
 
 type KpiItem = {
   label: string
-  value: string
+  value: string | number
   hint?: string
 }
 

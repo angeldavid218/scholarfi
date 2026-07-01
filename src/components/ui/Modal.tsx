@@ -1,11 +1,27 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react'
+
+const MODAL_WIDTHS = {
+  sm: '24rem',
+  md: '28rem',
+  lg: '32rem',
+  xl: '36rem',
+  '2xl': '42rem',
+  '3xl': '48rem',
+  '4xl': '56rem',
+  '5xl': '64rem',
+  full: 'min(96vw, 72rem)',
+} as const
+
+export type ModalSize = keyof typeof MODAL_WIDTHS
 
 export type ModalProps = {
   open: boolean
   onClose: () => void
   title: ReactNode
   children: ReactNode
-  /** Applied to `modal-box` (width, etc.) */
+  /** Beats DaisyUI `.modal-box` default max-width (32rem). */
+  size?: ModalSize
+  /** Extra classes on `modal-box` (padding, etc.). Avoid `max-w-*` — use `size` instead. */
   boxClassName?: string
   /** Optional class on the title heading */
   titleClassName?: string
@@ -20,6 +36,7 @@ export function Modal({
   onClose,
   title,
   children,
+  size = 'lg',
   boxClassName = '',
   titleClassName = 'text-lg font-bold',
 }: ModalProps) {
@@ -35,9 +52,14 @@ export function Modal({
     }
   }, [open])
 
+  const boxStyle: CSSProperties = {
+    maxWidth: MODAL_WIDTHS[size],
+    width: 'calc(11/12 * 100%)',
+  }
+
   return (
     <dialog ref={ref} className="modal" onClose={onClose}>
-      <div className={`modal-box relative max-w-lg ${boxClassName}`.trim()}>
+      <div className={`modal-box relative ${boxClassName}`.trim()} style={boxStyle}>
         {/* Title + children before the close control so the first focusable inside the dialog is usually in `children` (e.g. textarea), not the ✕ button. */}
         <h3 className={`pe-10 ${titleClassName}`.trim()}>{title}</h3>
         <div className="mt-3">{children}</div>

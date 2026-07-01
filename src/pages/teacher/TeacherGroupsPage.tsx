@@ -2,7 +2,38 @@ import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } fr
 import { HiArrowUpTray, HiUserGroup } from 'react-icons/hi2'
 import { api, ApiError, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
-import { EmptyState, ExecutiveHero, SectionCard } from '../../components/ui/executive'
+import { EmptyState, ExecutiveHero, KpiStrip, SectionCard } from '../../components/ui/executive'
+import { Modal } from '../../components/ui/Modal'
+import { parseCsvContent, validateGroupImportCsv } from '../../utils/csvParser'
+
+type ImportRowResult = {
+  row: number
+  status: 'created' | 'updated' | 'skipped' | 'error'
+  studentEmail?: string
+  subject?: string
+  section?: string | null
+  message?: string
+}
+
+type ImportSummary = {
+  dryRun: boolean
+  subjectsCreated: number
+  groupsCreated: number
+  studentsCreated: number
+  enrollmentsUpserted: number
+  teacherLinksUpserted: number
+  rowResults: ImportRowResult[]
+  errors: Array<{ row: number; field: string; message: string }>
+}
+
+const PREVIEW_SAMPLE_ROWS = 20
+
+const ROW_STATUS_LABEL: Record<ImportRowResult['status'], string> = {
+  created: 'Nuevo',
+  updated: 'Existente',
+  skipped: 'Omitido',
+  error: 'Error',
+}
 
 type GroupRow = {
   id: number
@@ -11,15 +42,6 @@ type GroupRow = {
   subjectName: string | null
   studentCount: number
   externalSource: string
-}
-
-type ImportSummary = {
-  dryRun: boolean
-  subjectsCreated: number
-  groupsCreated: number
-  enrollmentsUpserted: number
-  teacherLinksUpserted: number
-  errors: Array<{ row: number; field: string; message: string }>
 }
 
 const CSV_TEMPLATE = `student_email,student_name,subject,section
@@ -32,8 +54,10 @@ export function TeacherGroupsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [file, setFile] = useState<File | null>(null)
+  const [fileError, setFileError] = useState<string | null>(null)
   const [importMsg, setImportMsg] = useState<string | null>(null)
   const [importSummary, setImportSummary] = useState<ImportSummary | null>(null)
+  const [previewOpen, setPreviewOpen] = useState(false)
   const [importing, setImporting] = useState(false)
 
   const load = useCallback(async () => {
@@ -55,10 +79,22 @@ export function TeacherGroupsPage() {
     load()
   }, [load])
 
-  function onFileChange(e: ChangeEvent<HTMLInputElement>) {
-    setFile(e.target.files?.[0] ?? null)
+  async function onFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const selected = e.target.files?.[0] ?? null
+    setFile(selected)
+    setFileError(null)
     setImportMsg(null)
     setImportSummary(null)
+    setPreviewOpen(false)
+
+    if (!selected) return
+
+    try {
+      const parsed = parseCsvContent(await selected.text())
+      setFileError(validateGroupImportCsv(parsed))
+    } catch {
+      setFileError('No se pudo leer el archivo CSV')
+    }
   }
 
   function downloadTemplate() {
@@ -73,10 +109,16 @@ export function TeacherGroupsPage() {
 
   async function runImport(dryRun: boolean, e?: FormEvent) {
     e?.preventDefault()
-    if (!token || !file) return
+    if (!token || !file || fileError) return
     setImporting(true)
-    setImportMsg(null)
-    setImportSummary(null)
+    if (dryRun) {
+      setImportMsg(null)
+      setImportSummary(null)
+      setPreviewOpen(false)
+    } else if (!previewOpen) {
+      setImportMsg(null)
+      setImportSummary(null)
+    }
     try {
       const formData = new FormData()
       formData.append('file', file)
@@ -86,16 +128,18 @@ export function TeacherGroupsPage() {
         token,
       })
       setImportSummary(result.summary)
-      setImportMsg(
-        dryRun
-          ? `Vista previa: ${result.summary.groupsCreated} clase(s) nueva(s), ${result.summary.enrollmentsUpserted} inscripción(es).`
-          : `Importación completada: ${result.summary.groupsCreated} clase(s) nueva(s), ${result.summary.enrollmentsUpserted} inscripción(es).`
-      )
-      if (!dryRun) {
+      if (dryRun) {
+        setPreviewOpen(true)
+      } else {
+        setPreviewOpen(false)
+        setImportMsg(
+          `Importación completada: ${result.summary.studentsCreated} estudiante(s) nuevo(s), ${result.summary.groupsCreated} clase(s) nueva(s), ${result.summary.enrollmentsUpserted} inscripción(es).`
+        )
         setFile(null)
         await load()
       }
     } catch (err) {
+      setPreviewOpen(false)
       setImportMsg(
         err instanceof ApiError ? getApiErrorMessage(err.body) : 'No se pudo importar el CSV'
       )
@@ -124,7 +168,7 @@ export function TeacherGroupsPage() {
 
       <SectionCard
         title="Importar clases (CSV)"
-        subtitle="Una fila por estudiante y clase. Los estudiantes deben existir en la escuela."
+        subtitle="Una fila por estudiante y clase. Los estudiantes nuevos se registran automáticamente en la escuela."
         titleIcon={<HiArrowUpTray aria-hidden />}
       >
         <form className="mt-2 grid max-w-xl gap-4" onSubmit={(e) => runImport(false, e)}>
@@ -141,32 +185,37 @@ export function TeacherGroupsPage() {
             className="file-input file-input-bordered w-full max-w-md"
             onChange={onFileChange}
           />
+          {fileError && <div className="alert alert-error text-sm">{fileError}</div>}
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
               className="btn btn-outline"
-              disabled={!file || importing}
+              disabled={!file || !!fileError || importing}
               onClick={() => runImport(true)}
             >
               Vista previa
             </button>
-            <button type="submit" className="btn btn-primary" disabled={!file || importing}>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={!file || !!fileError || importing}
+            >
               {importing ? 'Importando…' : 'Importar'}
             </button>
           </div>
-          {importMsg && (
+          {importMsg && !previewOpen && (
             <div
               role="status"
               className={
                 importSummary && importSummary.errors.length > 0
                   ? 'alert alert-warning text-sm'
-                  : 'alert alert-info text-sm'
+                  : 'alert alert-success text-sm'
               }
             >
               {importMsg}
             </div>
           )}
-          {importSummary && importSummary.errors.length > 0 && (
+          {importSummary && importSummary.errors.length > 0 && !previewOpen && (
             <div className="overflow-x-auto">
               <table className="table table-zebra table-sm">
                 <thead>
@@ -190,6 +239,121 @@ export function TeacherGroupsPage() {
           )}
         </form>
       </SectionCard>
+
+      <Modal
+        open={previewOpen && importSummary !== null}
+        onClose={() => setPreviewOpen(false)}
+        title="Vista previa de importación"
+        size="4xl"
+      >
+        {importSummary ? (
+          <div className="space-y-4">
+            <p className="text-sm text-base-content/70">
+              Revisa el resumen antes de confirmar. No se guardará nada hasta que pulses{' '}
+              <strong>Confirmar importación</strong>.
+            </p>
+
+            <KpiStrip
+              items={[
+                { label: 'Estudiantes nuevos', value: importSummary.studentsCreated },
+                { label: 'Clases nuevas', value: importSummary.groupsCreated },
+                { label: 'Materias nuevas', value: importSummary.subjectsCreated },
+                { label: 'Inscripciones', value: importSummary.enrollmentsUpserted },
+              ]}
+            />
+
+            {importSummary.errors.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-warning">
+                  {importSummary.errors.length} fila(s) con error — revisa antes de importar.
+                </p>
+                <div className="max-h-48 overflow-x-auto overflow-y-auto rounded-lg border border-base-300">
+                  <table className="table table-zebra table-sm">
+                    <thead>
+                      <tr>
+                        <th>Fila</th>
+                        <th>Campo</th>
+                        <th>Error</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importSummary.errors.map((rowErr) => (
+                        <tr key={`${rowErr.row}-${rowErr.field}`}>
+                          <td>{rowErr.row}</td>
+                          <td>{rowErr.field}</td>
+                          <td>{rowErr.message}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : null}
+
+            {importSummary.rowResults.length > 0 ? (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">
+                  Muestra de filas
+                  {importSummary.rowResults.length > PREVIEW_SAMPLE_ROWS
+                    ? ` (primeras ${PREVIEW_SAMPLE_ROWS} de ${importSummary.rowResults.length})`
+                    : ` (${importSummary.rowResults.length})`}
+                </p>
+                <div className="max-h-64 overflow-x-auto overflow-y-auto rounded-lg border border-base-300">
+                  <table className="table table-zebra table-sm">
+                    <thead>
+                      <tr>
+                        <th>Fila</th>
+                        <th>Estudiante</th>
+                        <th>Materia</th>
+                        <th>Sección</th>
+                        <th>Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importSummary.rowResults.slice(0, PREVIEW_SAMPLE_ROWS).map((row) => (
+                        <tr key={row.row}>
+                          <td>{row.row}</td>
+                          <td>{row.studentEmail ?? '—'}</td>
+                          <td>{row.subject ?? '—'}</td>
+                          <td>{row.section ?? '—'}</td>
+                          <td>
+                            <span
+                              className={
+                                row.status === 'error' ? 'text-error' : 'text-base-content/80'
+                              }
+                            >
+                              {ROW_STATUS_LABEL[row.status]}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="modal-action mt-2 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                className="btn btn-ghost"
+                disabled={importing}
+                onClick={() => setPreviewOpen(false)}
+              >
+                Cerrar
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={importing}
+                onClick={() => runImport(false)}
+              >
+                {importing ? 'Importando…' : 'Confirmar importación'}
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </Modal>
 
       <SectionCard
         title="Clases asignadas"
