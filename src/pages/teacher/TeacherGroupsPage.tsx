@@ -4,7 +4,15 @@ import { api, ApiError, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
 import { EmptyState, ExecutiveHero, KpiStrip, SectionCard } from '../../components/ui/executive'
 import { Modal } from '../../components/ui/Modal'
-import { parseCsvContent, validateGroupImportCsv } from '../../utils/csvParser'
+import {
+  GROUP_IMPORT_FIELD_LABELS,
+  GROUP_IMPORT_FIELDS,
+  type GroupImportColumnMapping,
+  type GroupImportField,
+  parseCsvContentRaw,
+  suggestGroupImportColumnMapping,
+  validateGroupImportColumnMapping,
+} from '../../utils/csvParser'
 
 type ImportRowResult = {
   row: number
@@ -48,17 +56,32 @@ const CSV_TEMPLATE = `student_email,student_name,subject,section
 maria@school.edu,María García,Matemáticas,3°A
 juan@school.edu,Juan Pérez,Matemáticas,3°A`
 
+const EMPTY_MAPPING: GroupImportColumnMapping = {}
+
+function isFieldRequired(field: GroupImportField): boolean {
+  return field === 'student_email'
+}
+
+function isFieldConditionallyRequired(field: GroupImportField): boolean {
+  return field === 'subject' || field === 'class_name'
+}
+
 export function TeacherGroupsPage() {
   const { token } = useAuth()
   const [groups, setGroups] = useState<GroupRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [file, setFile] = useState<File | null>(null)
+  const [csvHeaders, setCsvHeaders] = useState<string[]>([])
+  const [columnMapping, setColumnMapping] = useState<GroupImportColumnMapping>(EMPTY_MAPPING)
   const [fileError, setFileError] = useState<string | null>(null)
   const [importMsg, setImportMsg] = useState<string | null>(null)
   const [importSummary, setImportSummary] = useState<ImportSummary | null>(null)
   const [previewOpen, setPreviewOpen] = useState(false)
-  const [importing, setImporting] = useState(false)
+  const [importingAction, setImportingAction] = useState<'preview' | 'import' | null>(null)
+
+  const mappingError = validateGroupImportColumnMapping(columnMapping)
+  const canImport = Boolean(file && !fileError && !mappingError && csvHeaders.length > 0)
 
   const load = useCallback(async () => {
     if (!token) return
@@ -86,15 +109,41 @@ export function TeacherGroupsPage() {
     setImportMsg(null)
     setImportSummary(null)
     setPreviewOpen(false)
+    setCsvHeaders([])
+    setColumnMapping(EMPTY_MAPPING)
 
     if (!selected) return
 
     try {
-      const parsed = parseCsvContent(await selected.text())
-      setFileError(validateGroupImportCsv(parsed))
+      const parsed = parseCsvContentRaw(await selected.text())
+      if (parsed.headers.length === 0) {
+        setFileError('El archivo CSV no tiene encabezados de columna')
+        return
+      }
+      if (parsed.rows.length === 0) {
+        setFileError('El archivo CSV está vacío o no tiene filas de datos')
+        return
+      }
+      setCsvHeaders(parsed.headers)
+      setColumnMapping(suggestGroupImportColumnMapping(parsed.headers))
     } catch {
       setFileError('No se pudo leer el archivo CSV')
     }
+  }
+
+  function onMappingChange(field: GroupImportField, csvColumn: string) {
+    setColumnMapping((prev) => {
+      const next = { ...prev }
+      if (!csvColumn) {
+        delete next[field]
+      } else {
+        next[field] = csvColumn
+      }
+      return next
+    })
+    setImportMsg(null)
+    setImportSummary(null)
+    setPreviewOpen(false)
   }
 
   function downloadTemplate() {
@@ -109,8 +158,8 @@ export function TeacherGroupsPage() {
 
   async function runImport(dryRun: boolean, e?: FormEvent) {
     e?.preventDefault()
-    if (!token || !file || fileError) return
-    setImporting(true)
+    if (!token || !file || !canImport) return
+    setImportingAction(dryRun ? 'preview' : 'import')
     if (dryRun) {
       setImportMsg(null)
       setImportSummary(null)
@@ -122,6 +171,7 @@ export function TeacherGroupsPage() {
     try {
       const formData = new FormData()
       formData.append('file', file)
+      formData.append('columnMapping', JSON.stringify(columnMapping))
       const path = dryRun ? '/groups/import-csv?dryRun=true' : '/groups/import-csv'
       const result = await api.postForm<{ dryRun: boolean; summary: ImportSummary }>(path, {
         formData,
@@ -136,6 +186,8 @@ export function TeacherGroupsPage() {
           `Importación completada: ${result.summary.studentsCreated} estudiante(s) nuevo(s), ${result.summary.groupsCreated} clase(s) nueva(s), ${result.summary.enrollmentsUpserted} inscripción(es).`
         )
         setFile(null)
+        setCsvHeaders([])
+        setColumnMapping(EMPTY_MAPPING)
         await load()
       }
     } catch (err) {
@@ -144,7 +196,7 @@ export function TeacherGroupsPage() {
         err instanceof ApiError ? getApiErrorMessage(err.body) : 'No se pudo importar el CSV'
       )
     } finally {
-      setImporting(false)
+      setImportingAction(null)
     }
   }
 
@@ -168,13 +220,13 @@ export function TeacherGroupsPage() {
 
       <SectionCard
         title="Importar clases (CSV)"
-        subtitle="Una fila por estudiante y clase. Los estudiantes nuevos se registran automáticamente en la escuela."
+        subtitle="Sube tu archivo y elige qué columnas corresponden a cada campo. Las columnas extra se ignoran."
         titleIcon={<HiArrowUpTray aria-hidden />}
       >
-        <form className="mt-2 grid max-w-xl gap-4" onSubmit={(e) => runImport(false, e)}>
+        <form className="mt-2 grid max-w-3xl gap-4" onSubmit={(e) => runImport(false, e)}>
           <p className="text-sm text-base-content/70">
-            Columnas: <code>student_email</code>, <code>subject</code>, <code>section</code>{' '}
-            (opcional <code>student_name</code>, <code>class_name</code>).
+            Puedes usar exportaciones de Excel, Classroom o tu sistema escolar. Solo necesitas mapear
+            al menos <strong>correo</strong> y <strong>materia</strong> (o nombre de clase).
           </p>
           <button type="button" className="btn btn-ghost btn-sm w-fit" onClick={downloadTemplate}>
             Descargar plantilla CSV
@@ -186,21 +238,82 @@ export function TeacherGroupsPage() {
             onChange={onFileChange}
           />
           {fileError && <div className="alert alert-error text-sm">{fileError}</div>}
+
+          {csvHeaders.length > 0 ? (
+            <div className="space-y-3 rounded-box border border-base-300 bg-base-200/40 p-4">
+              <div>
+                <p className="text-sm font-medium">Asignación de columnas</p>
+                <p className="mt-1 text-sm text-base-content/70">
+                  Columnas detectadas en tu archivo: {csvHeaders.join(', ')}
+                </p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {GROUP_IMPORT_FIELDS.map((field) => (
+                  <label key={field} className="form-control w-full">
+                    <span className="label py-0">
+                      <span className="label-text">
+                        {GROUP_IMPORT_FIELD_LABELS[field]}
+                        {isFieldRequired(field) ? (
+                          <span className="ml-1 text-error">*</span>
+                        ) : isFieldConditionallyRequired(field) ? (
+                          <span className="ml-1 text-base-content/50">(una de dos)</span>
+                        ) : (
+                          <span className="ml-1 text-base-content/50">(opcional)</span>
+                        )}
+                      </span>
+                    </span>
+                    <select
+                      className="select select-bordered select-sm w-full"
+                      value={columnMapping[field] ?? ''}
+                      onChange={(e) => onMappingChange(field, e.target.value)}
+                    >
+                      <option value="">— No importar —</option>
+                      {csvHeaders.map((header) => (
+                        <option key={`${field}-${header}`} value={header}>
+                          {header}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ))}
+              </div>
+              {mappingError ? (
+                <div className="alert alert-warning py-2 text-sm">{mappingError}</div>
+              ) : (
+                <p className="text-sm text-success">Asignación válida. Puedes continuar con la vista previa.</p>
+              )}
+            </div>
+          ) : null}
+
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              className="btn btn-outline"
-              disabled={!file || !!fileError || importing}
+              className="btn btn-outline gap-1"
+              disabled={!canImport || importingAction !== null}
               onClick={() => runImport(true)}
             >
-              Vista previa
+              {importingAction === 'preview' ? (
+                <>
+                  <span className="loading loading-spinner loading-sm" aria-hidden />
+                  Generando vista previa…
+                </>
+              ) : (
+                'Vista previa'
+              )}
             </button>
             <button
               type="submit"
-              className="btn btn-primary"
-              disabled={!file || !!fileError || importing}
+              className="btn btn-primary gap-1"
+              disabled={!canImport || importingAction !== null}
             >
-              {importing ? 'Importando…' : 'Importar'}
+              {importingAction === 'import' ? (
+                <>
+                  <span className="loading loading-spinner loading-sm" aria-hidden />
+                  Importando…
+                </>
+              ) : (
+                'Importar'
+              )}
             </button>
           </div>
           {importMsg && !previewOpen && (
@@ -337,18 +450,25 @@ export function TeacherGroupsPage() {
               <button
                 type="button"
                 className="btn btn-ghost"
-                disabled={importing}
+                disabled={importingAction !== null}
                 onClick={() => setPreviewOpen(false)}
               >
                 Cerrar
               </button>
               <button
                 type="button"
-                className="btn btn-primary"
-                disabled={importing}
+                className="btn btn-primary gap-1"
+                disabled={importingAction !== null}
                 onClick={() => runImport(false)}
               >
-                {importing ? 'Importando…' : 'Confirmar importación'}
+                {importingAction === 'import' ? (
+                  <>
+                    <span className="loading loading-spinner loading-sm" aria-hidden />
+                    Importando…
+                  </>
+                ) : (
+                  'Confirmar importación'
+                )}
               </button>
             </div>
           </div>
