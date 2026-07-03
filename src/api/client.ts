@@ -90,4 +90,10 @@ export const api = {
       token: opts?.token,
       body: opts?.json !== undefined ? JSON.stringify(opts.json) : undefined,
     }),
+
+  postForm: <T>(path: string, opts: { formData: FormData; token?: string | null }) =>
+    apiRequest<T>('POST', path, {
+      token: opts.token,
+      body: opts.formData,
+    }),
 }
