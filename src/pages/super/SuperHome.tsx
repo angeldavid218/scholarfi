@@ -21,6 +21,13 @@ type InstitutionRow = {
   cryptoWalletsEnabled: boolean
 }
 
+type InstitutionCreditPool = {
+  institutionId: number
+  allocatedCredits: number
+  utilizedCredits: number
+  remainingCredits: number
+}
+
 type NgoRow = {
   id: number
   name: string
@@ -59,6 +66,11 @@ export function SuperHome() {
   // NGO Admin Assign states
   const [assignNgoUserId, setAssignNgoUserId] = useState('')
   const [assignNgoId, setAssignNgoId] = useState('')
+
+  const [allocateInstId, setAllocateInstId] = useState('')
+  const [allocateAmount, setAllocateAmount] = useState('')
+  const [allocateNotes, setAllocateNotes] = useState('')
+  const [poolPreview, setPoolPreview] = useState<InstitutionCreditPool | null>(null)
 
   const loadAllData = useCallback(async (showLoadingSpinner = false) => {
     if (!token) return
@@ -229,6 +241,58 @@ export function SuperHome() {
       setNgoAdminEmail('')
       setNgoAdminPassword('')
       await loadAllData()
+    } catch (err) {
+      setMsg(err instanceof ApiError ? getApiErrorMessage(err.body) : 'Error')
+    }
+  }
+
+  async function allocateCredits(e: FormEvent) {
+    e.preventDefault()
+    if (!token) return
+    setMsg(null)
+    const id = Number(allocateInstId)
+    const amount = Number(allocateAmount)
+    if (!Number.isInteger(id) || id <= 0) {
+      setMsg('ID de institución inválido')
+      return
+    }
+    if (!Number.isInteger(amount) || amount <= 0) {
+      setMsg('Cantidad de créditos inválida')
+      return
+    }
+    try {
+      const data = await api.post<InstitutionCreditPool & { allocatedAmount: number }>(
+        `/institutions/${id}/credit-pool/allocate`,
+        {
+          json: {
+            amount,
+            notes: allocateNotes.trim() || undefined,
+          },
+          token,
+        }
+      )
+      setPoolPreview(data)
+      setMsg(
+        `Asignados ${amount} créditos a institución ${id}. Disponibles: ${data.remainingCredits}.`
+      )
+      setAllocateAmount('')
+      setAllocateNotes('')
+    } catch (err) {
+      setMsg(err instanceof ApiError ? getApiErrorMessage(err.body) : 'Error')
+    }
+  }
+
+  async function loadPoolPreview() {
+    if (!token) return
+    const id = Number(allocateInstId)
+    if (!Number.isInteger(id) || id <= 0) {
+      setMsg('ID de institución inválido')
+      return
+    }
+    setMsg(null)
+    try {
+      const data = await api.get<InstitutionCreditPool>(`/institutions/${id}/credit-pool`, { token })
+      setPoolPreview(data)
     } catch (err) {
       setMsg(err instanceof ApiError ? getApiErrorMessage(err.body) : 'Error')
     }
@@ -485,6 +549,66 @@ export function SuperHome() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <SectionCard
+          title="Asignar presupuesto de créditos"
+          subtitle="Provisiona el pool institucional para que los admins distribuyan recompensas."
+          titleIcon={<HiPlusCircle aria-hidden />}
+        >
+          <form className="mt-2 grid gap-4" onSubmit={allocateCredits}>
+            <label className="form-control w-full">
+              <div className="label pt-0">
+                <span className="label-text">ID institución</span>
+              </div>
+              <input
+                value={allocateInstId}
+                onChange={(e) => setAllocateInstId(e.target.value)}
+                required
+                className="input input-bordered w-full"
+              />
+            </label>
+            <label className="form-control w-full">
+              <div className="label pt-0">
+                <span className="label-text">Créditos a asignar</span>
+              </div>
+              <input
+                type="number"
+                min={1}
+                value={allocateAmount}
+                onChange={(e) => setAllocateAmount(e.target.value)}
+                required
+                className="input input-bordered w-full"
+              />
+            </label>
+            <label className="form-control w-full">
+              <div className="label pt-0">
+                <span className="label-text">Notas (opcional)</span>
+              </div>
+              <input
+                value={allocateNotes}
+                onChange={(e) => setAllocateNotes(e.target.value)}
+                className="input input-bordered w-full"
+              />
+            </label>
+            <div className="flex flex-wrap gap-2">
+              <button type="submit" className="btn btn-primary">
+                Asignar créditos
+              </button>
+              <button type="button" className="btn btn-outline" onClick={() => void loadPoolPreview()}>
+                Ver pool
+              </button>
+            </div>
+          </form>
+          {poolPreview ? (
+            <p className="mt-4 text-sm text-base-content/75">
+              Pool institución {formatId(poolPreview.institutionId)}:{' '}
+              <span className="font-medium text-secondary">
+                {poolPreview.remainingCredits} disponibles
+              </span>{' '}
+              de {poolPreview.allocatedCredits} asignados ({poolPreview.utilizedCredits} utilizados).
+            </p>
+          ) : null}
+        </SectionCard>
+
         <SectionCard
           title="Activar / desactivar institucion"
           subtitle="Controla disponibilidad operativa y riesgo de cambios."

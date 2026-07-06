@@ -10,6 +10,12 @@ import type { PaginatedMeta, PaginatedPayload } from '../../types'
 type HistorySummary = {
   transactionCount: number
   creditsTotal: number
+  creditPool?: {
+    institutionId: number
+    allocatedCredits: number
+    utilizedCredits: number
+    remainingCredits: number
+  } | null
 }
 
 type RosterRow = {
@@ -171,6 +177,8 @@ export function AdminHome() {
 
   const txCount = summary?.transactionCount ?? 0
   const creditsTotal = summary?.creditsTotal ?? 0
+  const poolRemaining = summary?.creditPool?.remainingCredits ?? 0
+  const poolAllocated = summary?.creditPool?.allocatedCredits ?? 0
 
   return (
     <div className="space-y-6">
@@ -181,6 +189,11 @@ export function AdminHome() {
       />
       <KpiStrip
         items={[
+          {
+            label: 'Presupuesto disponible',
+            value: formatCreditsWithUnit(poolRemaining),
+            hint: `De ${formatCreditsWithUnit(poolAllocated)} asignados por ScholarFi`,
+          },
           { label: 'Cola aprobacion', value: 'Ver modulo', hint: 'Seccion dedicada en sidebar' },
           {
             label: 'Movimientos',
