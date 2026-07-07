@@ -5,6 +5,7 @@ import { RoleGate } from './components/RoleGate'
 import { AdminApprovalQueuePage } from './pages/admin/AdminApprovalQueuePage'
 import { AdminBitacoraAprobacionPage } from './pages/admin/AdminBitacoraAprobacionPage'
 import { AdminHome } from './pages/admin/AdminHome'
+import { AdminTeacherBudgetPage } from './pages/admin/AdminTeacherBudgetPage'
 import { DemoPage } from './pages/DemoPage'
 import { HomeRedirect } from './pages/HomeRedirect'
 import { LoginPage } from './pages/LoginPage'
@@ -39,6 +40,7 @@ export default function App() {
           </Route>
           <Route element={<RoleGate allow={['school_admin']} />}>
             <Route path="admin" element={<AdminHome />} />
+            <Route path="admin/presupuesto-docentes" element={<AdminTeacherBudgetPage />} />
             <Route path="admin/cola-aprobacion" element={<AdminApprovalQueuePage />} />
             <Route path="admin/bitacora-aprobacion" element={<AdminBitacoraAprobacionPage />} />
           </Route>

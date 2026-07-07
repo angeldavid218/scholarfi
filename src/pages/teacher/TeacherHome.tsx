@@ -9,7 +9,7 @@ import { useAuth } from '../../auth/AuthContext'
 import { EmptyState, ExecutiveHero, KpiStrip, SectionCard } from '../../components/ui/executive'
 import { TablePagination } from '../../components/ui/TablePagination'
 import { CREDIT_TOKEN_NAME, TASK_STATUS_LABELS } from '../../i18n/es'
-import { formatId } from '../../i18n/format'
+import { formatCreditsWithUnit, formatId } from '../../i18n/format'
 import type { PaginatedMeta, PaginatedPayload } from '../../types'
 
 type TaskRow = {
@@ -26,6 +26,14 @@ type TeacherTaskSummary = {
   closed: number
 }
 
+type TeacherCreditPool = {
+  teacherId: number
+  allocatedCredits: number
+  utilizedCredits: number
+  remainingCredits: number
+  hasPool: boolean
+}
+
 function statusBadgeClass(status: string): string {
   if (status === 'active') return 'badge badge-success badge-sm'
   if (status === 'closed') return 'badge badge-neutral badge-sm'
@@ -37,6 +45,7 @@ export function TeacherHome() {
   const [tasks, setTasks] = useState<TaskRow[]>([])
   const [tasksMeta, setTasksMeta] = useState<PaginatedMeta | null>(null)
   const [summary, setSummary] = useState<TeacherTaskSummary | null>(null)
+  const [creditPool, setCreditPool] = useState<TeacherCreditPool | null>(null)
   const [tasksPage, setTasksPage] = useState(1)
   const [tasksPerPage, setTasksPerPage] = useState(10)
   const [loading, setLoading] = useState(true)
@@ -51,13 +60,15 @@ export function TeacherHome() {
     setError(null)
     setLoading(true)
     try {
-      const [s, t] = await Promise.all([
+      const [s, t, pool] = await Promise.all([
         api.get<TeacherTaskSummary>('/tasks/summary', { token }),
         api.get<PaginatedPayload<TaskRow>>(`/tasks?page=${tasksPage}&perPage=${tasksPerPage}`, { token }),
+        api.get<TeacherCreditPool>('/teachers/credit-pool', { token }).catch(() => null),
       ])
       setSummary(s)
       setTasks(Array.isArray(t?.items) ? t.items : [])
       setTasksMeta(t?.meta ?? null)
+      setCreditPool(pool)
     } catch (e) {
       setError(e instanceof ApiError ? getApiErrorMessage(e.body) : 'Error al cargar')
     } finally {
@@ -141,6 +152,15 @@ export function TeacherHome() {
             value: `${closeRatePct}%`,
             hint: 'Tareas finalizadas',
           },
+          ...(creditPool?.hasPool
+            ? [
+                {
+                  label: 'Presupuesto docente',
+                  value: formatCreditsWithUnit(creditPool.remainingCredits),
+                  hint: 'Disponible para recompensas autonomas',
+                },
+              ]
+            : []),
         ]}
       />
 

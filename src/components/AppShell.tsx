@@ -4,6 +4,7 @@ import {
   HiAcademicCap,
   HiArrowRightOnRectangle,
   HiBars3,
+  HiBanknotes,
   HiBuildingOffice2,
   HiClipboardDocumentCheck,
   HiClipboardDocumentList,
@@ -57,6 +58,7 @@ export function AppShell() {
     ...(roles.includes('school_admin')
       ? ([
         { to: '/admin', end: true, label: 'Admin escolar', Icon: HiBuildingOffice2 },
+        { to: '/admin/presupuesto-docentes', label: 'Presupuesto docentes', Icon: HiBanknotes },
         { to: '/admin/cola-aprobacion', label: 'Cola de aprobacion', Icon: HiClipboardDocumentCheck },
       ] as NavItem[])
       : []),
