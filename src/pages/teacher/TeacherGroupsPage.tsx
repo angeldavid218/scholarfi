@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
-import { HiArrowUpTray, HiUserGroup } from 'react-icons/hi2'
+import { HiArrowUpTray, HiLink, HiUserGroup } from 'react-icons/hi2'
+import { Link } from 'react-router-dom'
 import { api, ApiError, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
 import { EmptyState, ExecutiveHero, KpiStrip, SectionCard } from '../../components/ui/executive'
@@ -213,8 +214,15 @@ export function TeacherGroupsPage() {
       <ExecutiveHero
         eyebrow="Panel docente"
         title="Mis clases"
-        subtitle="Organiza estudiantes por materia y sección. Importa tu roster desde CSV antes de conectar Google Classroom."
+        subtitle="Organiza estudiantes por materia y sección. Importa tu roster desde CSV o conecta Google Classroom."
       />
+
+      <div className="flex justify-end">
+        <Link to="/teacher/integraciones" className="btn btn-outline btn-sm gap-1">
+          <HiLink className="h-4 w-4" aria-hidden />
+          Conectar Google Classroom
+        </Link>
+      </div>
 
       {error && <div className="alert alert-error">{error}</div>}
 

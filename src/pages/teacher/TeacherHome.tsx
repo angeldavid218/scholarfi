@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import {
+  HiArrowPath,
   HiClipboardDocumentList,
   HiLockClosed,
   HiPlusCircle,
 } from 'react-icons/hi2'
+import { Link } from 'react-router-dom'
 import { api, ApiError, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
 import { EmptyState, ExecutiveHero, KpiStrip, SectionCard } from '../../components/ui/executive'
@@ -19,6 +21,16 @@ type TaskRow = {
   rewardAmount: number
   dueAt: string | null
   status: string
+  externalSource?: string
+  syncMetadata?: {
+    minGrade?: number
+    maxPoints?: number | null
+    lastSyncAt?: string | null
+    lastSyncSummary?: {
+      rewarded: number
+      budgetRemaining: number
+    } | null
+  } | null
 }
 
 type TeacherTaskSummary = {
@@ -109,6 +121,28 @@ export function TeacherHome() {
     }
   }
 
+  async function syncClassroomTask(id: number) {
+    if (!token) return
+    setActionMsg(null)
+    try {
+      const result = await api.post<{
+        rewarded: number
+        skippedLowGrade: number
+        skippedNoGrade: number
+        skippedBudgetExhausted: number
+        budgetRemaining: number
+      }>(`/tasks/${id}/sync-classroom`, { json: {}, token })
+      setActionMsg(
+        `Sincronizacion completada: ${result.rewarded} recompensa(s) emitida(s). Presupuesto restante: ${result.budgetRemaining}.`
+      )
+      await load()
+    } catch (err) {
+      setActionMsg(
+        err instanceof ApiError ? getApiErrorMessage(err.body) : 'No se pudo sincronizar con Classroom'
+      )
+    }
+  }
+
   async function closeTask(id: number) {
     if (!token) return
     setActionMsg(null)
@@ -175,6 +209,11 @@ export function TeacherHome() {
         title="Nueva tarea"
         subtitle="Define actividades con impacto medible y reglas claras de evaluacion."
         titleIcon={<HiPlusCircle aria-hidden />}
+        actions={
+          <Link to="/teacher/integraciones" className="btn btn-outline btn-sm">
+            Google Classroom
+          </Link>
+        }
       >
         <form className="mt-2 grid max-w-xl gap-4" onSubmit={createTask}>
           <label className="form-control w-full">
@@ -253,6 +292,7 @@ export function TeacherHome() {
                   <tr>
                     <th>ID</th>
                     <th>Titulo</th>
+                    <th>Origen</th>
                     <th>Estado</th>
                     <th />
                   </tr>
@@ -263,11 +303,33 @@ export function TeacherHome() {
                       <th>{formatId(t.id)}</th>
                       <td>{t.title}</td>
                       <td>
+                        {t.externalSource === 'google_classroom' ? (
+                          <span className="badge badge-info badge-sm">Classroom</span>
+                        ) : (
+                          <span className="badge badge-ghost badge-sm">Manual</span>
+                        )}
+                      </td>
+                      <td>
                         <span className={statusBadgeClass(t.status)}>
                           {TASK_STATUS_LABELS[t.status as keyof typeof TASK_STATUS_LABELS] ?? t.status}
                         </span>
                       </td>
-                      <td>
+                      <td className="flex flex-wrap gap-1">
+                        {t.externalSource === 'google_classroom' && t.status === 'active' ? (
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm gap-1"
+                            onClick={() => void syncClassroomTask(t.id)}
+                            title={
+                              t.syncMetadata?.minGrade != null
+                                ? `Nota minima: ${t.syncMetadata.minGrade}`
+                                : undefined
+                            }
+                          >
+                            <HiArrowPath className="h-4 w-4" aria-hidden />
+                            Sincronizar
+                          </button>
+                        ) : null}
                         {t.status === 'active' ? (
                           <button
                             type="button"
