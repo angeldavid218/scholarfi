@@ -66,11 +66,13 @@ export function TeacherHome() {
   const [createMsg, setCreateMsg] = useState<string | null>(null)
 
   const [actionMsg, setActionMsg] = useState<string | null>(null)
+  const [actionMsgTone, setActionMsgTone] = useState<'info' | 'success' | 'error'>('info')
+  const [syncingTaskId, setSyncingTaskId] = useState<number | null>(null)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (options?: { silent?: boolean }) => {
     if (!token) return
     setError(null)
-    setLoading(true)
+    if (!options?.silent) setLoading(true)
     try {
       const [s, t, pool] = await Promise.all([
         api.get<TeacherTaskSummary>('/tasks/summary', { token }),
@@ -84,7 +86,7 @@ export function TeacherHome() {
     } catch (e) {
       setError(e instanceof ApiError ? getApiErrorMessage(e.body) : 'Error al cargar')
     } finally {
-      setLoading(false)
+      if (!options?.silent) setLoading(false)
     }
   }, [token, tasksPage, tasksPerPage])
 
@@ -122,24 +124,36 @@ export function TeacherHome() {
   }
 
   async function syncClassroomTask(id: number) {
-    if (!token) return
+    if (!token || syncingTaskId != null) return
+    setSyncingTaskId(id)
     setActionMsg(null)
+    setActionMsgTone('info')
     try {
       const result = await api.post<{
         rewarded: number
         skippedLowGrade: number
         skippedNoGrade: number
+        skippedAlreadyRewarded: number
         skippedBudgetExhausted: number
         budgetRemaining: number
       }>(`/tasks/${id}/sync-classroom`, { json: {}, token })
+      const skippedTotal =
+        result.skippedLowGrade +
+        result.skippedNoGrade +
+        result.skippedAlreadyRewarded +
+        result.skippedBudgetExhausted
+      setActionMsgTone(result.rewarded > 0 ? 'success' : 'info')
       setActionMsg(
-        `Sincronizacion completada: ${result.rewarded} recompensa(s) emitida(s). Presupuesto restante: ${result.budgetRemaining}.`
+        `Sincronizacion completada: ${result.rewarded} recompensa(s) emitida(s), ${skippedTotal} omitida(s). Presupuesto restante: ${result.budgetRemaining}.`
       )
-      await load()
+      await load({ silent: true })
     } catch (err) {
+      setActionMsgTone('error')
       setActionMsg(
         err instanceof ApiError ? getApiErrorMessage(err.body) : 'No se pudo sincronizar con Classroom'
       )
+    } finally {
+      setSyncingTaskId(null)
     }
   }
 
@@ -199,11 +213,28 @@ export function TeacherHome() {
       />
 
       {error && <div className="alert alert-error">{error}</div>}
-      {actionMsg && (
-        <div role="status" className="alert alert-info text-sm">
+      {syncingTaskId != null ? (
+        <div role="status" aria-live="polite" className="alert alert-info text-sm">
+          <span className="loading loading-spinner loading-sm" aria-hidden />
+          Sincronizando con Google Classroom: cargando calificaciones, revisando entregas y emitiendo
+          recompensas. Esto puede tardar unos segundos.
+        </div>
+      ) : null}
+      {actionMsg && syncingTaskId == null ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className={
+            actionMsgTone === 'success'
+              ? 'alert alert-success text-sm'
+              : actionMsgTone === 'error'
+                ? 'alert alert-error text-sm'
+                : 'alert alert-info text-sm'
+          }
+        >
           {actionMsg}
         </div>
-      )}
+      ) : null}
 
       <SectionCard
         title="Nueva tarea"
@@ -319,6 +350,8 @@ export function TeacherHome() {
                           <button
                             type="button"
                             className="btn btn-primary btn-sm gap-1"
+                            disabled={syncingTaskId != null}
+                            aria-busy={syncingTaskId === t.id}
                             onClick={() => void syncClassroomTask(t.id)}
                             title={
                               t.syncMetadata?.minGrade != null
@@ -326,8 +359,17 @@ export function TeacherHome() {
                                 : undefined
                             }
                           >
-                            <HiArrowPath className="h-4 w-4" aria-hidden />
-                            Sincronizar
+                            {syncingTaskId === t.id ? (
+                              <>
+                                <span className="loading loading-spinner loading-sm" aria-hidden />
+                                Sincronizando…
+                              </>
+                            ) : (
+                              <>
+                                <HiArrowPath className="h-4 w-4" aria-hidden />
+                                Sincronizar
+                              </>
+                            )}
                           </button>
                         ) : null}
                         {t.status === 'active' ? (
