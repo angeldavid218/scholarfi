@@ -68,6 +68,9 @@ export const INSTITUTION_CRYPTO_WALLETS_LABELS = {
 
 const API_ERROR_CODE_MESSAGES: Record<string, string> = {
   INVALID_CREDENTIALS: 'Credenciales invalidas.',
+  ACCOUNT_PENDING_REGISTRATION: 'Debes completar tu registro antes de iniciar sesion.',
+  STUDENT_REGISTRATION_INVALID:
+    'No se pudo activar la cuenta. Verifica tu correo y matricula.',
   VALIDATION_ERROR: 'Revisa los campos y vuelve a intentar.',
   INSTITUTION_CODE_TAKEN: 'Ese codigo de institucion ya existe.',
   NGO_INSTITUTION_CODE_TAKEN: 'Ese codigo de ONG ya existe.',

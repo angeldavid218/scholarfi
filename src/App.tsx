@@ -9,6 +9,7 @@ import { AdminTeacherBudgetPage } from './pages/admin/AdminTeacherBudgetPage'
 import { DemoPage } from './pages/DemoPage'
 import { HomeRedirect } from './pages/HomeRedirect'
 import { LoginPage } from './pages/LoginPage'
+import { RegisterStudentPage } from './pages/RegisterStudentPage'
 import { StudentHome } from './pages/student/StudentHome'
 import { StudentSubmissionsPage } from './pages/student/StudentSubmissionsPage'
 import { StudentTasksPage } from './pages/student/StudentTasksPage'
@@ -24,6 +25,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/registro" element={<RegisterStudentPage />} />
       <Route element={<RequireAuth />}>
         <Route path="/" element={<AppShell />}>
           <Route index element={<HomeRedirect />} />

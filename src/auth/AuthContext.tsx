@@ -27,7 +27,14 @@ type AuthContextValue = {
   profile: Profile | null
   bootstrapping: boolean
   loginError: string | null
+  registerError: string | null
   login: (email: string, password: string) => Promise<void>
+  registerStudent: (
+    email: string,
+    registrationNumber: string,
+    password: string,
+    passwordConfirmation: string
+  ) => Promise<void>
   logout: () => Promise<void>
   refreshProfile: () => Promise<void>
 }
@@ -39,6 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [bootstrapping, setBootstrapping] = useState(() => !!getStoredToken())
   const [loginError, setLoginError] = useState<string | null>(null)
+  const [registerError, setRegisterError] = useState<string | null>(null)
 
   const refreshProfile = useCallback(async () => {
     const t = token ?? getStoredToken()
@@ -98,6 +106,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const registerStudent = useCallback(
+    async (
+      email: string,
+      registrationNumber: string,
+      password: string,
+      passwordConfirmation: string
+    ) => {
+      setRegisterError(null)
+      try {
+        const data = await api.post<{ token: string }>('/auth/register-student', {
+          json: { email, registrationNumber, password, passwordConfirmation },
+        })
+        setStoredToken(data.token)
+        setToken(data.token)
+      } catch (e) {
+        if (e instanceof ApiError) {
+          setRegisterError(getApiErrorMessage(e.body))
+        } else {
+          setRegisterError('No se pudo completar el registro')
+        }
+        throw e
+      }
+    },
+    []
+  )
+
   const logout = useCallback(async () => {
     const t = token ?? getStoredToken()
     try {
@@ -117,11 +151,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       profile,
       bootstrapping,
       loginError,
+      registerError,
       login,
+      registerStudent,
       logout,
       refreshProfile,
     }),
-    [token, profile, bootstrapping, loginError, login, logout, refreshProfile]
+    [
+      token,
+      profile,
+      bootstrapping,
+      loginError,
+      registerError,
+      login,
+      registerStudent,
+      logout,
+      refreshProfile,
+    ]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

@@ -53,14 +53,14 @@ type GroupRow = {
   externalSource: string
 }
 
-const CSV_TEMPLATE = `student_email,student_name,subject,section
-maria@school.edu,María García,Matemáticas,3°A
-juan@school.edu,Juan Pérez,Matemáticas,3°A`
+const CSV_TEMPLATE = `student_email,student_name,registration_number,subject,section
+maria@school.edu,María García,2024001,Matemáticas,3°A
+juan@school.edu,Juan Pérez,2024002,Matemáticas,3°A`
 
 const EMPTY_MAPPING: GroupImportColumnMapping = {}
 
 function isFieldRequired(field: GroupImportField): boolean {
-  return field === 'student_email'
+  return field === 'student_email' || field === 'registration_number'
 }
 
 function isFieldConditionallyRequired(field: GroupImportField): boolean {

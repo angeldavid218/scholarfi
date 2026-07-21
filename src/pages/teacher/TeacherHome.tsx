@@ -46,10 +46,35 @@ type TeacherCreditPool = {
   hasPool: boolean
 }
 
+type ClassroomSyncResult = {
+  rewarded: number
+  skippedLowGrade: number
+  skippedNoGrade: number
+  skippedAlreadyRewarded: number
+  skippedBudgetExhausted: number
+  budgetRemaining: number
+}
+
 function statusBadgeClass(status: string): string {
   if (status === 'active') return 'badge badge-success badge-sm'
   if (status === 'closed') return 'badge badge-neutral badge-sm'
   return 'badge badge-ghost badge-sm'
+}
+
+function formatTaskDueLine(dueAt: string | null): string | null {
+  if (!dueAt) return null
+  const due = new Date(dueAt)
+  if (Number.isNaN(due.getTime())) return null
+  const formatted = new Intl.DateTimeFormat('es-MX', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(due)
+  return `Vence: ${formatted}`
+}
+
+function isSyncableClassroomTask(task: TaskRow): boolean {
+  return task.externalSource === 'google_classroom' && task.status === 'active'
 }
 
 export function TeacherHome() {
@@ -68,6 +93,7 @@ export function TeacherHome() {
   const [actionMsg, setActionMsg] = useState<string | null>(null)
   const [actionMsgTone, setActionMsgTone] = useState<'info' | 'success' | 'error'>('info')
   const [syncingTaskId, setSyncingTaskId] = useState<number | null>(null)
+  const [syncingAll, setSyncingAll] = useState(false)
 
   const load = useCallback(async (options?: { silent?: boolean }) => {
     if (!token) return
@@ -123,29 +149,29 @@ export function TeacherHome() {
     }
   }
 
+  async function postClassroomSync(id: number): Promise<ClassroomSyncResult> {
+    if (!token) throw new Error('No autenticado')
+    return api.post<ClassroomSyncResult>(`/tasks/${id}/sync-classroom`, { json: {}, token })
+  }
+
+  function summarizeSyncResult(result: ClassroomSyncResult): string {
+    const skippedTotal =
+      result.skippedLowGrade +
+      result.skippedNoGrade +
+      result.skippedAlreadyRewarded +
+      result.skippedBudgetExhausted
+    return `${result.rewarded} recompensa(s) emitida(s), ${skippedTotal} omitida(s). Presupuesto restante: ${result.budgetRemaining}.`
+  }
+
   async function syncClassroomTask(id: number) {
-    if (!token || syncingTaskId != null) return
+    if (!token || syncingTaskId != null || syncingAll) return
     setSyncingTaskId(id)
     setActionMsg(null)
     setActionMsgTone('info')
     try {
-      const result = await api.post<{
-        rewarded: number
-        skippedLowGrade: number
-        skippedNoGrade: number
-        skippedAlreadyRewarded: number
-        skippedBudgetExhausted: number
-        budgetRemaining: number
-      }>(`/tasks/${id}/sync-classroom`, { json: {}, token })
-      const skippedTotal =
-        result.skippedLowGrade +
-        result.skippedNoGrade +
-        result.skippedAlreadyRewarded +
-        result.skippedBudgetExhausted
+      const result = await postClassroomSync(id)
       setActionMsgTone(result.rewarded > 0 ? 'success' : 'info')
-      setActionMsg(
-        `Sincronizacion completada: ${result.rewarded} recompensa(s) emitida(s), ${skippedTotal} omitida(s). Presupuesto restante: ${result.budgetRemaining}.`
-      )
+      setActionMsg(`Sincronizacion completada: ${summarizeSyncResult(result)}`)
       await load({ silent: true })
     } catch (err) {
       setActionMsgTone('error')
@@ -154,6 +180,58 @@ export function TeacherHome() {
       )
     } finally {
       setSyncingTaskId(null)
+    }
+  }
+
+  async function syncAllClassroomTasks() {
+    if (!token || syncingTaskId != null || syncingAll) return
+    const syncable = tasks.filter(isSyncableClassroomTask)
+    if (syncable.length === 0) {
+      setActionMsgTone('info')
+      setActionMsg('No hay tareas activas de Google Classroom para sincronizar en esta pagina.')
+      return
+    }
+
+    setSyncingAll(true)
+    setActionMsg(null)
+    setActionMsgTone('info')
+    let rewardedTotal = 0
+    let skippedTotal = 0
+    let lastBudgetRemaining: number | null = null
+    let failed = 0
+
+    try {
+      for (const task of syncable) {
+        setSyncingTaskId(task.id)
+        try {
+          const result = await postClassroomSync(task.id)
+          rewardedTotal += result.rewarded
+          skippedTotal +=
+            result.skippedLowGrade +
+            result.skippedNoGrade +
+            result.skippedAlreadyRewarded +
+            result.skippedBudgetExhausted
+          lastBudgetRemaining = result.budgetRemaining
+        } catch {
+          failed += 1
+        }
+      }
+
+      if (failed === syncable.length) {
+        setActionMsgTone('error')
+        setActionMsg('No se pudo sincronizar ninguna tarea con Classroom.')
+      } else {
+        setActionMsgTone(rewardedTotal > 0 ? 'success' : failed > 0 ? 'error' : 'info')
+        const budgetPart =
+          lastBudgetRemaining != null ? ` Presupuesto restante: ${lastBudgetRemaining}.` : ''
+        setActionMsg(
+          `Sincronizacion masiva: ${syncable.length - failed}/${syncable.length} tarea(s) OK. ${rewardedTotal} recompensa(s), ${skippedTotal} omitida(s).${budgetPart}`
+        )
+      }
+      await load({ silent: true })
+    } finally {
+      setSyncingTaskId(null)
+      setSyncingAll(false)
     }
   }
 
@@ -213,14 +291,15 @@ export function TeacherHome() {
       />
 
       {error && <div className="alert alert-error">{error}</div>}
-      {syncingTaskId != null ? (
+      {syncingTaskId != null || syncingAll ? (
         <div role="status" aria-live="polite" className="alert alert-info text-sm">
           <span className="loading loading-spinner loading-sm" aria-hidden />
-          Sincronizando con Google Classroom: cargando calificaciones, revisando entregas y emitiendo
-          recompensas. Esto puede tardar unos segundos.
+          {syncingAll
+            ? 'Sincronizando todas las tareas de Google Classroom. Esto puede tardar unos segundos.'
+            : 'Sincronizando con Google Classroom: cargando calificaciones, revisando entregas y emitiendo recompensas. Esto puede tardar unos segundos.'}
         </div>
       ) : null}
-      {actionMsg && syncingTaskId == null ? (
+      {actionMsg && syncingTaskId == null && !syncingAll ? (
         <div
           role="status"
           aria-live="polite"
@@ -312,6 +391,32 @@ export function TeacherHome() {
         title="Mis tareas"
         subtitle="Portafolio de actividades bajo tu responsabilidad."
         titleIcon={<HiClipboardDocumentList aria-hidden />}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="badge badge-ghost badge-sm">
+              {formatId(tasksMeta?.total ?? tasks.length)} registros
+            </span>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm gap-1"
+              disabled={syncingTaskId != null || syncingAll || !tasks.some(isSyncableClassroomTask)}
+              aria-busy={syncingAll}
+              onClick={() => void syncAllClassroomTasks()}
+            >
+              {syncingAll ? (
+                <>
+                  <span className="loading loading-spinner loading-sm" aria-hidden />
+                  Sincronizando…
+                </>
+              ) : (
+                <>
+                  <HiArrowPath className="h-4 w-4" aria-hidden />
+                  Sincronizar todo
+                </>
+              )}
+            </button>
+          </div>
+        }
       >
         {(tasksMeta?.total ?? 0) === 0 ? (
           <EmptyState title="Aun no registras tareas." detail="Crea una tarea para iniciar el ciclo de evidencia." />
@@ -329,64 +434,73 @@ export function TeacherHome() {
                   </tr>
                 </thead>
                 <tbody>
-                  {tasks.map((t) => (
-                    <tr key={t.id}>
-                      <th>{formatId(t.id)}</th>
-                      <td>{t.title}</td>
-                      <td>
-                        {t.externalSource === 'google_classroom' ? (
-                          <span className="badge badge-info badge-sm">Classroom</span>
-                        ) : (
-                          <span className="badge badge-ghost badge-sm">Manual</span>
-                        )}
-                      </td>
-                      <td>
-                        <span className={statusBadgeClass(t.status)}>
-                          {TASK_STATUS_LABELS[t.status as keyof typeof TASK_STATUS_LABELS] ?? t.status}
-                        </span>
-                      </td>
-                      <td className="flex flex-wrap gap-1">
-                        {t.externalSource === 'google_classroom' && t.status === 'active' ? (
-                          <button
-                            type="button"
-                            className="btn btn-primary btn-sm gap-1"
-                            disabled={syncingTaskId != null}
-                            aria-busy={syncingTaskId === t.id}
-                            onClick={() => void syncClassroomTask(t.id)}
-                            title={
-                              t.syncMetadata?.minGrade != null
-                                ? `Nota minima: ${t.syncMetadata.minGrade}`
-                                : undefined
-                            }
-                          >
-                            {syncingTaskId === t.id ? (
-                              <>
-                                <span className="loading loading-spinner loading-sm" aria-hidden />
-                                Sincronizando…
-                              </>
-                            ) : (
-                              <>
-                                <HiArrowPath className="h-4 w-4" aria-hidden />
-                                Sincronizar
-                              </>
-                            )}
-                          </button>
-                        ) : null}
-                        {t.status === 'active' ? (
-                          <button
-                            type="button"
-                            className="btn btn-outline btn-sm gap-1"
-                            onClick={() => closeTask(t.id)}
-                          >
-                            <HiLockClosed className="h-4 w-4" aria-hidden />
-                            Cerrar
-                          </button>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                  {tasks.map((t) => {
+                    const dueLine = formatTaskDueLine(t.dueAt)
+                    return (
+                      <tr key={t.id}>
+                        <th>{formatId(t.id)}</th>
+                        <td>
+                          <div>{t.title}</div>
+                          {dueLine ? (
+                            <div className="text-xs text-base-content/60">{dueLine}</div>
+                          ) : null}
+                        </td>
+                        <td>
+                          {t.externalSource === 'google_classroom' ? (
+                            <span className="badge badge-info badge-sm">Classroom</span>
+                          ) : (
+                            <span className="badge badge-ghost badge-sm">Manual</span>
+                          )}
+                        </td>
+                        <td>
+                          <span className={statusBadgeClass(t.status)}>
+                            {TASK_STATUS_LABELS[t.status as keyof typeof TASK_STATUS_LABELS] ?? t.status}
+                          </span>
+                        </td>
+                        <td className="flex flex-wrap gap-1">
+                          {isSyncableClassroomTask(t) ? (
+                            <button
+                              type="button"
+                              className="btn btn-primary btn-sm gap-1"
+                              disabled={syncingTaskId != null || syncingAll}
+                              aria-busy={syncingTaskId === t.id}
+                              onClick={() => void syncClassroomTask(t.id)}
+                              title={
+                                t.syncMetadata?.minGrade != null
+                                  ? `Nota minima: ${t.syncMetadata.minGrade}`
+                                  : undefined
+                              }
+                            >
+                              {syncingTaskId === t.id ? (
+                                <>
+                                  <span className="loading loading-spinner loading-sm" aria-hidden />
+                                  Sincronizando…
+                                </>
+                              ) : (
+                                <>
+                                  <HiArrowPath className="h-4 w-4" aria-hidden />
+                                  Sincronizar
+                                </>
+                              )}
+                            </button>
+                          ) : null}
+                          {t.status === 'active' ? (
+                            <button
+                              type="button"
+                              className="btn btn-outline btn-sm gap-1"
+                              disabled={syncingTaskId != null || syncingAll}
+                              onClick={() => closeTask(t.id)}
+                            >
+                              <HiLockClosed className="h-4 w-4" aria-hidden />
+                              Cerrar
+                            </button>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

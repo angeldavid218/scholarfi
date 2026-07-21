@@ -8,6 +8,7 @@ export type ParsedCsv = {
 export type GroupImportField =
   | 'student_email'
   | 'student_name'
+  | 'registration_number'
   | 'subject'
   | 'section'
   | 'class_name'
@@ -17,6 +18,7 @@ export type GroupImportColumnMapping = Partial<Record<GroupImportField, string>>
 export const GROUP_IMPORT_FIELDS: GroupImportField[] = [
   'student_email',
   'student_name',
+  'registration_number',
   'subject',
   'section',
   'class_name',
@@ -25,12 +27,16 @@ export const GROUP_IMPORT_FIELDS: GroupImportField[] = [
 export const GROUP_IMPORT_FIELD_LABELS: Record<GroupImportField, string> = {
   student_email: 'Correo del estudiante',
   student_name: 'Nombre del estudiante',
+  registration_number: 'Matrícula',
   subject: 'Materia',
   section: 'Sección / grupo',
   class_name: 'Nombre de clase',
 }
 
-export const GROUP_IMPORT_REQUIRED_FIELDS: GroupImportField[] = ['student_email']
+export const GROUP_IMPORT_REQUIRED_FIELDS: GroupImportField[] = [
+  'student_email',
+  'registration_number',
+]
 
 const FIELD_ALIASES: Record<GroupImportField, string[]> = {
   student_email: [
@@ -53,6 +59,16 @@ const FIELD_ALIASES: Record<GroupImportField, string[]> = {
     'full_name',
     'alumno',
     'estudiante',
+  ],
+  registration_number: [
+    'registration_number',
+    'matricula',
+    'matricula',
+    'student_id',
+    'numero_de_control',
+    'numero_control',
+    'n_control',
+    'id_estudiante',
   ],
   subject: ['subject', 'materia', 'asignatura', 'disciplina', 'curso_materia'],
   section: ['section', 'grupo', 'seccion', 'sección', 'grupo_seccion', 'paralelo', 'salon', 'salón'],
@@ -134,6 +150,10 @@ export function validateGroupImportColumnMapping(mapping: GroupImportColumnMappi
     return 'Debes asignar la columna de correo del estudiante'
   }
 
+  if (!mapping.registration_number) {
+    return 'Debes asignar la columna de matrícula del estudiante'
+  }
+
   if (!mapping.subject && !mapping.class_name) {
     return 'Debes asignar la columna de materia o de nombre de clase'
   }
@@ -154,6 +174,10 @@ export function validateGroupImportParsed(parsed: ParsedCsv): string | null {
 
   if (!parsed.headers.includes('student_email')) {
     return 'Falta la columna requerida: correo del estudiante'
+  }
+
+  if (!parsed.headers.includes('registration_number')) {
+    return 'Falta la columna requerida: matrícula'
   }
 
   if (!parsed.headers.includes('subject') && !parsed.headers.includes('class_name')) {
