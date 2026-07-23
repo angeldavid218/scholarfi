@@ -9,6 +9,7 @@ import {
   HiClipboardDocumentCheck,
   HiClipboardDocumentList,
   HiDocumentText,
+  HiGift,
   HiGlobeAlt,
   HiInboxStack,
   HiLink,
@@ -61,6 +62,7 @@ export function AppShell() {
       ? ([
         { to: '/admin', end: true, label: 'Admin escolar', Icon: HiBuildingOffice2 },
         { to: '/admin/presupuesto-docentes', label: 'Presupuesto docentes', Icon: HiBanknotes },
+        { to: '/admin/recompensas-internas', label: 'Recompensas internas', Icon: HiGift },
         { to: '/admin/cola-aprobacion', label: 'Cola de aprobacion', Icon: HiClipboardDocumentCheck },
       ] as NavItem[])
       : []),

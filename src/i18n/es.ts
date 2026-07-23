@@ -82,6 +82,11 @@ const API_ERROR_CODE_MESSAGES: Record<string, string> = {
   TRANSITION_NOT_ALLOWED: 'La accion no es valida para el estado actual.',
   AUTHENTICATION_REQUIRED: 'Tu sesion no es valida. Inicia sesion de nuevo.',
   EMAIL_TAKEN: 'Ese correo ya esta registrado.',
+  REWARD_NOT_FOUND: 'La recompensa no esta disponible.',
+  INSUFFICIENT_CREDITS: 'No tienes suficientes creditos para este canje.',
+  INVALID_REDEMPTION_STATE: 'El canje no esta pendiente de decision.',
+  REDEMPTION_NOT_FOUND: 'No se encontro la solicitud de canje.',
+  REDEMPTION_EXECUTION_FAILED: 'No se pudo completar el canje.',
 }
 
 export function getApiErrorEsMessage(code?: string | null): string | null {
