@@ -1,16 +1,15 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   HiArrowPath,
   HiClipboardDocumentList,
   HiLockClosed,
-  HiPlusCircle,
 } from 'react-icons/hi2'
 import { Link } from 'react-router-dom'
 import { api, ApiError, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
 import { EmptyState, ExecutiveHero, KpiStrip, SectionCard } from '../../components/ui/executive'
 import { TablePagination } from '../../components/ui/TablePagination'
-import { CREDIT_TOKEN_NAME, TASK_STATUS_LABELS } from '../../i18n/es'
+import { TASK_STATUS_LABELS } from '../../i18n/es'
 import { formatCreditsWithUnit, formatId } from '../../i18n/format'
 import type { PaginatedMeta, PaginatedPayload } from '../../types'
 
@@ -88,8 +87,6 @@ export function TeacherHome() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const [createMsg, setCreateMsg] = useState<string | null>(null)
-
   const [actionMsg, setActionMsg] = useState<string | null>(null)
   const [actionMsgTone, setActionMsgTone] = useState<'info' | 'success' | 'error'>('info')
   const [syncingTaskId, setSyncingTaskId] = useState<number | null>(null)
@@ -120,34 +117,6 @@ export function TeacherHome() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     load()
   }, [load])
-
-  async function createTask(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    if (!token) return
-    setCreateMsg(null)
-    const form = e.currentTarget
-    const fd = new FormData(form)
-    const title = String(fd.get('title') ?? '').trim()
-    const description = String(fd.get('description') ?? '').trim()
-    const rewardAmount = Number(String(fd.get('rewardAmount') ?? ''))
-    const dueAtRaw = String(fd.get('dueAt') ?? '').trim()
-    try {
-      const body: Record<string, unknown> = {
-        title,
-        description,
-        rewardAmount,
-      }
-      if (dueAtRaw) body.dueAt = new Date(dueAtRaw).toISOString()
-      await api.post('/tasks', { json: body, token })
-      setCreateMsg('Tarea creada.')
-      form.reset()
-      await load()
-    } catch (err) {
-      setCreateMsg(
-        err instanceof ApiError ? getApiErrorMessage(err.body) : 'No se pudo crear la tarea'
-      )
-    }
-  }
 
   async function postClassroomSync(id: number): Promise<ClassroomSyncResult> {
     if (!token) throw new Error('No autenticado')
@@ -266,13 +235,12 @@ export function TeacherHome() {
     <div className="space-y-6">
       <ExecutiveHero
         eyebrow="Panel docente"
-        title="Operacion de validacion"
-        subtitle="Crea retos, revisa evidencia estudiantil y asegura trazabilidad de cada decision pedagogica."
+        title="Mis tareas de Classroom"
+        subtitle="Importa actividades desde Google Classroom, sincroniza calificaciones y administra el portafolio de tareas de tu clase."
       />
       <KpiStrip
         items={[
           { label: 'Tareas propias', value: formatId(totalTasks), hint: 'Inventario actual' },
-          { label: 'Cola pendiente', value: 'Ver modulo', hint: 'Seccion dedicada en sidebar' },
           {
             label: 'Tasa de cierre',
             value: `${closeRatePct}%`,
@@ -316,86 +284,17 @@ export function TeacherHome() {
       ) : null}
 
       <SectionCard
-        title="Nueva tarea"
-        subtitle="Define actividades con impacto medible y reglas claras de evaluacion."
-        titleIcon={<HiPlusCircle aria-hidden />}
-        actions={
-          <Link to="/teacher/integraciones" className="btn btn-outline btn-sm">
-            Google Classroom
-          </Link>
-        }
-      >
-        <form className="mt-2 grid max-w-xl gap-4" onSubmit={createTask}>
-          <label className="form-control w-full">
-            <div className="label pt-0">
-              <span className="label-text">Titulo</span>
-            </div>
-            <input
-              name="title"
-              required
-              minLength={2}
-              className="input input-bordered w-full"
-            />
-          </label>
-          <label className="form-control w-full">
-            <div className="label pt-0">
-              <span className="label-text">Descripcion</span>
-            </div>
-            <textarea
-              name="description"
-              required
-              minLength={2}
-              rows={3}
-              className="textarea textarea-bordered w-full"
-            />
-          </label>
-          <label className="form-control w-full">
-            <div className="label pt-0">
-              <span className="label-text">
-                {CREDIT_TOKEN_NAME} (por tarea, &gt; 0)
-              </span>
-            </div>
-            <input
-              name="rewardAmount"
-              type="number"
-              min={0.01}
-              step="any"
-              defaultValue={10}
-              required
-              className="input input-bordered w-full"
-            />
-          </label>
-          <label className="form-control w-full">
-            <div className="label pt-0">
-              <span className="label-text">Fecha limite (opcional)</span>
-            </div>
-            <input name="dueAt" type="datetime-local" className="input input-bordered w-full" />
-          </label>
-          {createMsg && (
-            <div
-              role="status"
-              className={
-                createMsg.includes('creada') ? 'alert alert-success text-sm' : 'alert alert-error text-sm'
-              }
-            >
-              {createMsg}
-            </div>
-          )}
-          <button type="submit" className="btn btn-primary w-fit">
-            Crear
-          </button>
-        </form>
-      </SectionCard>
-
-      <SectionCard
         title="Mis tareas"
-        subtitle="Portafolio de actividades bajo tu responsabilidad."
+        subtitle="Portafolio de actividades importadas desde Google Classroom."
         titleIcon={<HiClipboardDocumentList aria-hidden />}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <span className="badge badge-ghost badge-sm">
               {formatId(tasksMeta?.total ?? tasks.length)} registros
             </span>
+            <Link to="/teacher/integraciones" className="btn btn-outline btn-sm">
+              Importar de Classroom
+            </Link>
             <button
               type="button"
               className="btn btn-outline btn-sm gap-1"
@@ -419,7 +318,10 @@ export function TeacherHome() {
         }
       >
         {(tasksMeta?.total ?? 0) === 0 ? (
-          <EmptyState title="Aun no registras tareas." detail="Crea una tarea para iniciar el ciclo de evidencia." />
+          <EmptyState
+            title="Aun no tienes tareas importadas."
+            detail="Conecta Google Classroom e importa tareas para iniciar el ciclo de recompensas."
+          />
         ) : (
           <div className="space-y-3">
             <div className="overflow-x-auto">

@@ -1,8 +1,12 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { HiArrowPath, HiLink, HiXMark } from 'react-icons/hi2'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api, ApiError, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
+import {
+  GoogleClassroomTaskList,
+  type GoogleClassroomCourseWork,
+} from '../../components/teacher/GoogleClassroomTaskList'
 import { EmptyState, ExecutiveHero, SectionCard } from '../../components/ui/executive'
 import { CREDIT_TOKEN_NAME } from '../../i18n/es'
 
@@ -21,32 +25,28 @@ type ClassroomCourse = {
   courseState: string | null
 }
 
-type ClassroomCourseWork = {
-  id: string
-  title: string
-  description: string | null
-  maxPoints: number | null
-  state: string | null
-  dueDate: string | null
-  dueTime: string | null
-}
-
 export function TeacherIntegrationsPage() {
   const { token } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const [status, setStatus] = useState<IntegrationStatus | null>(null)
   const [courses, setCourses] = useState<ClassroomCourse[]>([])
-  const [courseWork, setCourseWork] = useState<ClassroomCourseWork[]>([])
+  const [courseWork, setCourseWork] = useState<GoogleClassroomCourseWork[]>([])
   const [selectedCourseId, setSelectedCourseId] = useState('')
-  const [selectedCourseWorkId, setSelectedCourseWorkId] = useState('')
+  const [selectedCourseWorkIds, setSelectedCourseWorkIds] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingCourseWork, setLoadingCourseWork] = useState(false)
+  const [importing, setImporting] = useState(false)
   const [actionMsg, setActionMsg] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [importMsg, setImportMsg] = useState<string | null>(null)
 
   const oauthConnected = searchParams.get('connected')
   const oauthError = searchParams.get('error')
+
+  const selectedWorks = useMemo(
+    () => courseWork.filter((work) => selectedCourseWorkIds.includes(work.id)),
+    [courseWork, selectedCourseWorkIds]
+  )
 
   const loadStatus = useCallback(async () => {
     if (!token) return
@@ -62,6 +62,7 @@ export function TeacherIntegrationsPage() {
       } else {
         setCourses([])
         setCourseWork([])
+        setSelectedCourseWorkIds([])
       }
     } catch (e) {
       setError(e instanceof ApiError ? getApiErrorMessage(e.body) : 'Error al cargar integracion')
@@ -106,7 +107,7 @@ export function TeacherIntegrationsPage() {
     try {
       await api.delete('/integrations/google-classroom/disconnect', { token })
       setSelectedCourseId('')
-      setSelectedCourseWorkId('')
+      setSelectedCourseWorkIds([])
       setCourseWork([])
       await loadStatus()
       setActionMsg('Google Classroom desconectado.')
@@ -119,13 +120,14 @@ export function TeacherIntegrationsPage() {
 
   async function onCourseChange(courseId: string) {
     setSelectedCourseId(courseId)
-    setSelectedCourseWorkId('')
+    setSelectedCourseWorkIds([])
     setCourseWork([])
+    setImportMsg(null)
     if (!token || !courseId) return
 
     setLoadingCourseWork(true)
     try {
-      const rows = await api.get<ClassroomCourseWork[]>(
+      const rows = await api.get<GoogleClassroomCourseWork[]>(
         `/integrations/google-classroom/courses/${encodeURIComponent(courseId)}/coursework`,
         { token }
       )
@@ -139,47 +141,101 @@ export function TeacherIntegrationsPage() {
     }
   }
 
-  async function importTask(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    if (!token || !selectedCourseId || !selectedCourseWorkId) return
+  async function runImport(form: HTMLFormElement, mode: 'selected' | 'all') {
+    if (!token || !selectedCourseId) return
 
     const course = courses.find((c) => c.id === selectedCourseId)
-    const work = courseWork.find((w) => w.id === selectedCourseWorkId)
-    if (!course || !work) return
+    if (!course) return
+
+    const worksToImport =
+      mode === 'all' ? courseWork : courseWork.filter((w) => selectedCourseWorkIds.includes(w.id))
+    if (worksToImport.length === 0) return
 
     setImportMsg(null)
-    const form = e.currentTarget
+    setImporting(true)
+
     const fd = new FormData(form)
     const rewardAmount = Number(String(fd.get('rewardAmount') ?? ''))
     const minGrade = Number(String(fd.get('minGrade') ?? ''))
 
+    let imported = 0
+    let skipped = 0
+    const failures: string[] = []
+
     try {
-      await api.post('/tasks/from-classroom', {
-        token,
-        json: {
-          courseId: course.id,
-          courseWorkId: work.id,
-          courseName: course.name,
-          section: course.section,
-          title: work.title,
-          description: work.description ?? work.title,
-          rewardAmount,
-          minGrade,
-          maxPoints: work.maxPoints ?? undefined,
-        },
-      })
-      setImportMsg('Tarea importada desde Google Classroom. Los estudiantes pueden enviar evidencia en ScholarFi.')
-      form.reset()
-      setSelectedCourseWorkId('')
-    } catch (err) {
-      console.error(err);
+      for (const work of worksToImport) {
+        try {
+          await api.post('/tasks/from-classroom', {
+            token,
+            json: {
+              courseId: course.id,
+              courseWorkId: work.id,
+              courseName: course.name,
+              section: course.section,
+              title: work.title,
+              description: work.description ?? work.title,
+              rewardAmount,
+              minGrade,
+              maxPoints: work.maxPoints ?? undefined,
+            },
+          })
+          imported += 1
+        } catch (err) {
+          const alreadyImported =
+            err instanceof ApiError &&
+            (err.status === 409 ||
+              String(getApiErrorMessage(err.body)).toLowerCase().includes('already'))
+          if (alreadyImported) {
+            skipped += 1
+          } else {
+            failures.push(
+              `${work.title}: ${
+                err instanceof ApiError ? getApiErrorMessage(err.body) : 'Error desconocido'
+              }`
+            )
+          }
+        }
+      }
+
+      const parts: string[] = []
+      if (imported > 0) {
+        parts.push(
+          imported === 1
+            ? '1 tarea importada desde Google Classroom'
+            : `${imported} tareas importadas desde Google Classroom`
+        )
+      }
+      if (skipped > 0) {
+        parts.push(
+          skipped === 1 ? '1 ya estaba importada' : `${skipped} ya estaban importadas`
+        )
+      }
+      if (failures.length > 0) {
+        parts.push(
+          failures.length === 1
+            ? `1 fallo: ${failures[0]}`
+            : `${failures.length} fallos. Primero: ${failures[0]}`
+        )
+      }
+
       setImportMsg(
-        err instanceof ApiError ? getApiErrorMessage(err.body) : 'No se pudo importar la tarea'
+        parts.length > 0
+          ? `${parts.join('. ')}. Los estudiantes pueden enviar evidencia en ScholarFi.`
+          : 'No se importaron tareas.'
       )
+
+      if (imported > 0 || skipped > 0) {
+        setSelectedCourseWorkIds([])
+      }
+    } finally {
+      setImporting(false)
     }
   }
 
-  const selectedWork = courseWork.find((w) => w.id === selectedCourseWorkId)
+  function onImportSelected(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    void runImport(e.currentTarget, 'selected')
+  }
 
   if (loading) {
     return (
@@ -247,8 +303,8 @@ export function TeacherIntegrationsPage() {
 
       {status?.connected ? (
         <SectionCard
-          title="Importar tarea con recompensa"
-          subtitle="Selecciona una tarea de Classroom y define la nota minima absoluta para obtener la recompensa."
+          title="Importar tareas con recompensa"
+          subtitle="Elige un curso, selecciona una o varias tareas de Classroom y define la nota minima absoluta para obtener la recompensa."
           titleIcon={<HiArrowPath aria-hidden />}
         >
           {courses.length === 0 ? (
@@ -257,7 +313,7 @@ export function TeacherIntegrationsPage() {
               detail="Verifica que tengas clases activas en Google Classroom."
             />
           ) : (
-            <form className="mt-2 grid max-w-xl gap-4" onSubmit={importTask}>
+            <form className="mt-2 grid max-w-2xl gap-4" onSubmit={onImportSelected}>
               <label className="form-control w-full">
                 <div className="label pt-0">
                   <span className="label-text">Curso</span>
@@ -278,33 +334,16 @@ export function TeacherIntegrationsPage() {
                 </select>
               </label>
 
-              <label className="form-control w-full">
-                <div className="label pt-0">
-                  <span className="label-text">Tarea de Classroom</span>
-                </div>
-                <select
-                  className="select select-bordered w-full"
-                  value={selectedCourseWorkId}
-                  onChange={(e) => setSelectedCourseWorkId(e.target.value)}
-                  required
-                  disabled={!selectedCourseId || loadingCourseWork}
-                >
-                  <option value="">
-                    {loadingCourseWork ? 'Cargando tareas...' : 'Selecciona una tarea'}
-                  </option>
-                  {courseWork.map((work) => (
-                    <option key={work.id} value={work.id}>
-                      {work.title}
-                      {work.maxPoints != null ? ` (${work.maxPoints} pts)` : ''}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <GoogleClassroomTaskList
+                courseSelected={Boolean(selectedCourseId)}
+                loading={loadingCourseWork}
+                tasks={courseWork}
+                selectedIds={selectedCourseWorkIds}
+                onSelectedIdsChange={setSelectedCourseWorkIds}
+              />
 
-              {selectedWork ? (
-                <p className="text-sm text-base-content/70">
-                  {selectedWork.description ?? 'Sin descripcion en Classroom.'}
-                </p>
+              {selectedWorks.length === 1 && selectedWorks[0]?.description ? (
+                <p className="text-sm text-base-content/70">{selectedWorks[0].description}</p>
               ) : null}
 
               <label className="form-control w-full">
@@ -337,7 +376,7 @@ export function TeacherIntegrationsPage() {
                 />
                 <div className="label">
                   <span className="label-text-alt">
-                    Ejemplo: 6 significa assignedGrade &gt;= 6 en Classroom.
+                    Se aplica a todas las tareas importadas. Ejemplo: 6 significa assignedGrade &gt;= 6 en Classroom.
                   </span>
                 </div>
               </label>
@@ -346,7 +385,7 @@ export function TeacherIntegrationsPage() {
                 <div
                   role="status"
                   className={
-                    importMsg.includes('importada')
+                    importMsg.includes('importada') || importMsg.includes('importadas')
                       ? 'alert alert-success text-sm'
                       : 'alert alert-error text-sm'
                   }
@@ -356,8 +395,30 @@ export function TeacherIntegrationsPage() {
               )}
 
               <div className="flex flex-wrap gap-2">
-                <button type="submit" className="btn btn-primary" disabled={!selectedCourseWorkId}>
-                  Importar tarea
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={importing || selectedCourseWorkIds.length === 0}
+                >
+                  {importing ? (
+                    <span className="loading loading-sm loading-spinner" aria-hidden />
+                  ) : null}
+                  Importar seleccionadas
+                  {selectedCourseWorkIds.length > 0 ? ` (${selectedCourseWorkIds.length})` : ''}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  disabled={importing || !selectedCourseId || courseWork.length === 0}
+                  onClick={(e) => {
+                    const form = e.currentTarget.form
+                    if (!form) return
+                    if (!form.reportValidity()) return
+                    void runImport(form, 'all')
+                  }}
+                >
+                  Importar todas
+                  {courseWork.length > 0 ? ` (${courseWork.length})` : ''}
                 </button>
                 <Link to="/teacher" className="btn btn-ghost">
                   Ir a mis tareas

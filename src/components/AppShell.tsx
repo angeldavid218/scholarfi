@@ -11,7 +11,6 @@ import {
   HiDocumentText,
   HiGift,
   HiGlobeAlt,
-  HiInboxStack,
   HiLink,
   HiQueueList,
   HiUserGroup,
@@ -55,7 +54,6 @@ export function AppShell() {
         { to: '/teacher', end: true, label: 'Docente', Icon: HiClipboardDocumentList },
         { to: '/teacher/clases', label: 'Mis clases', Icon: HiUserGroup },
         { to: '/teacher/integraciones', label: 'Google Classroom', Icon: HiLink },
-        { to: '/teacher/cola-validacion', label: 'Cola de validacion', Icon: HiInboxStack },
       ] as NavItem[])
       : []),
     ...(roles.includes('school_admin')
