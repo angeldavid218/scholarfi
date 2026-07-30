@@ -65,16 +65,15 @@ export function LoginPage() {
         <div className="relative z-[1] mx-auto flex w-full max-w-xl flex-col gap-6">
           <div>
             <h1 className="text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">
-              Libro mayor del merito escolar
+              Gestiona y reconoce el mérito escolar
             </h1>
             <p className="mt-4 max-w-md text-sm leading-relaxed text-primary-content/95">
-              Gobernanza clara, colas de validacion y ScholarFi Credits para los estudiantes. Accede con tu cuenta
-              institucional.
+              Revisa los logros registrados por los estudiantes, valida evidencias y aprueba la entrega de ScholarFi Credits desde un solo lugar.
             </p>
             <div className="mt-6 rounded-box border border-white/15 bg-base-content/10 p-4 backdrop-blur-[2px]">
-              <p className="text-sm font-semibold">Pensado para direccion y comites</p>
+              <p className="text-sm font-semibold">Para dirección y comités escolares</p>
               <p className="mt-1 text-sm text-primary-content/90">
-                Trazabilidad por rol, decisiones auditables y visualizacion clara del avance estudiantil.
+                Consulta el estado de cada solicitud, identifica quién la revisó y mantén un historial claro de todas las decisiones.
               </p>
             </div>
 
@@ -191,7 +190,7 @@ export function LoginPage() {
               </form>
 
               <p className="mt-4 text-center text-sm text-base-content/70">
-                �Eres estudiante y aun no activas tu cuenta?{' '}
+                Eres estudiante y aun no activas tu cuenta?{' '}
                 <Link to="/registro" className="link link-primary font-medium">
                   Registrarte
                 </Link>

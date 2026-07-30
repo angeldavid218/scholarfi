@@ -13,6 +13,7 @@ import {
   HiGlobeAlt,
   HiLink,
   HiQueueList,
+  HiTrophy,
   HiUserGroup,
 } from 'react-icons/hi2'
 import { NavLink, Outlet } from 'react-router-dom'
@@ -45,6 +46,7 @@ export function AppShell() {
     ...(roles.includes('student')
       ? ([
         { to: '/student', end: true, label: 'Resumen', Icon: HiAcademicCap },
+        { to: '/student/ranking', label: 'Ranking', Icon: HiTrophy },
         { to: '/student/tareas', label: 'Tareas disponibles', Icon: HiClipboardDocumentList },
         { to: '/student/envios', label: 'Mis envios', Icon: HiQueueList },
       ] as NavItem[])

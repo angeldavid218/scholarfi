@@ -12,6 +12,7 @@ import { HomeRedirect } from './pages/HomeRedirect'
 import { LoginPage } from './pages/LoginPage'
 import { RegisterStudentPage } from './pages/RegisterStudentPage'
 import { StudentHome } from './pages/student/StudentHome'
+import { StudentRankingPage } from './pages/student/StudentRankingPage'
 import { StudentSubmissionsPage } from './pages/student/StudentSubmissionsPage'
 import { StudentTasksPage } from './pages/student/StudentTasksPage'
 import { SubmissionDetailPage } from './pages/student/SubmissionDetailPage'
@@ -33,6 +34,7 @@ export default function App() {
           <Route path="demo" element={<DemoPage />} />
           <Route element={<RoleGate allow={['student']} />}>
             <Route path="student" element={<StudentHome />} />
+            <Route path="student/ranking" element={<StudentRankingPage />} />
             <Route path="student/tareas" element={<StudentTasksPage />} />
             <Route path="student/envios" element={<StudentSubmissionsPage />} />
             <Route path="student/submissions/:submissionId" element={<SubmissionDetailPage />} />
