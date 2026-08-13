@@ -87,6 +87,9 @@ const API_ERROR_CODE_MESSAGES: Record<string, string> = {
   INVALID_REDEMPTION_STATE: 'El canje no esta pendiente de decision.',
   REDEMPTION_NOT_FOUND: 'No se encontro la solicitud de canje.',
   REDEMPTION_EXECUTION_FAILED: 'No se pudo completar el canje.',
+  CURRENT_PASSWORD_INVALID: 'La contrasena actual es incorrecta.',
+  GOOGLE_CLASSROOM_NOT_CONNECTED: 'Conecta Google Classroom antes de continuar.',
+  CLASSROOM_STUDENT_SYNC_FAILED: 'No se pudo sincronizar estudiantes de Classroom.',
 }
 
 export function getApiErrorEsMessage(code?: string | null): string | null {

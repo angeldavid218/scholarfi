@@ -35,6 +35,11 @@ type AuthContextValue = {
     password: string,
     passwordConfirmation: string
   ) => Promise<void>
+  changePassword: (
+    currentPassword: string,
+    password: string,
+    passwordConfirmation: string
+  ) => Promise<void>
   logout: () => Promise<void>
   refreshProfile: () => Promise<void>
 }
@@ -145,6 +150,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [token])
 
+  const changePassword = useCallback(
+    async (currentPassword: string, password: string, passwordConfirmation: string) => {
+      const t = token ?? getStoredToken()
+      if (!t) throw new Error('No autenticado')
+      await api.patch<{ updated: boolean }>('/account/password', {
+        token: t,
+        json: { currentPassword, password, passwordConfirmation },
+      })
+    },
+    [token]
+  )
+
   const value = useMemo(
     () => ({
       token,
@@ -154,6 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       registerError,
       login,
       registerStudent,
+      changePassword,
       logout,
       refreshProfile,
     }),
@@ -165,6 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       registerError,
       login,
       registerStudent,
+      changePassword,
       logout,
       refreshProfile,
     ]

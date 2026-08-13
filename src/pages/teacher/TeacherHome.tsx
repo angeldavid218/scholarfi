@@ -3,6 +3,7 @@ import {
   HiArrowPath,
   HiClipboardDocumentList,
   HiLockClosed,
+  HiUserGroup,
 } from 'react-icons/hi2'
 import { Link } from 'react-router-dom'
 import { api, ApiError, getApiErrorMessage } from '../../api/client'
@@ -54,6 +55,37 @@ type ClassroomSyncResult = {
   budgetRemaining: number
 }
 
+type ClassroomSyncEnqueue = {
+  runId: number
+  taskId: number
+  status: string
+  deduped?: boolean
+}
+
+type ClassroomSyncRun = {
+  runId: number
+  taskId: number
+  status: 'queued' | 'running' | 'completed' | 'failed' | string
+  result: ClassroomSyncResult | null
+  errorMessage: string | null
+}
+
+type ClassroomStudentSyncSummary = {
+  courses: number
+  created: number
+  activated: number
+  linked: number
+  skipped: number
+  errors: Array<{ email: string | null; message: string }>
+}
+
+const SYNC_POLL_MS = 1000
+const SYNC_POLL_TIMEOUT_MS = 180_000
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 function statusBadgeClass(status: string): string {
   if (status === 'active') return 'badge badge-success badge-sm'
   if (status === 'closed') return 'badge badge-neutral badge-sm'
@@ -91,6 +123,7 @@ export function TeacherHome() {
   const [actionMsgTone, setActionMsgTone] = useState<'info' | 'success' | 'error'>('info')
   const [syncingTaskId, setSyncingTaskId] = useState<number | null>(null)
   const [syncingAll, setSyncingAll] = useState(false)
+  const [syncingStudents, setSyncingStudents] = useState(false)
 
   const load = useCallback(async (options?: { silent?: boolean }) => {
     if (!token) return
@@ -118,9 +151,34 @@ export function TeacherHome() {
     load()
   }, [load])
 
-  async function postClassroomSync(id: number): Promise<ClassroomSyncResult> {
+  async function enqueueClassroomSync(id: number): Promise<ClassroomSyncEnqueue> {
     if (!token) throw new Error('No autenticado')
-    return api.post<ClassroomSyncResult>(`/tasks/${id}/sync-classroom`, { json: {}, token })
+    return api.post<ClassroomSyncEnqueue>(`/tasks/${id}/sync-classroom`, { json: {}, token })
+  }
+
+  async function pollClassroomSyncRun(runId: number): Promise<ClassroomSyncRun> {
+    if (!token) throw new Error('No autenticado')
+    const started = Date.now()
+    while (Date.now() - started < SYNC_POLL_TIMEOUT_MS) {
+      const run = await api.get<ClassroomSyncRun>(`/classroom-sync-runs/${runId}`, { token })
+      if (run.status === 'completed' || run.status === 'failed') {
+        return run
+      }
+      await sleep(SYNC_POLL_MS)
+    }
+    throw new Error('La sincronizacion tardo demasiado. Revisa el worker (`npm run queue:work`).')
+  }
+
+  async function postClassroomSync(id: number): Promise<ClassroomSyncResult> {
+    const enqueued = await enqueueClassroomSync(id)
+    const run = await pollClassroomSyncRun(enqueued.runId)
+    if (run.status === 'failed') {
+      throw new Error(run.errorMessage || 'No se pudo sincronizar con Classroom')
+    }
+    if (!run.result) {
+      throw new Error('Sincronizacion completada sin resultado')
+    }
+    return run.result
   }
 
   function summarizeSyncResult(result: ClassroomSyncResult): string {
@@ -133,7 +191,7 @@ export function TeacherHome() {
   }
 
   async function syncClassroomTask(id: number) {
-    if (!token || syncingTaskId != null || syncingAll) return
+    if (!token || syncingTaskId != null || syncingAll || syncingStudents) return
     setSyncingTaskId(id)
     setActionMsg(null)
     setActionMsgTone('info')
@@ -145,7 +203,11 @@ export function TeacherHome() {
     } catch (err) {
       setActionMsgTone('error')
       setActionMsg(
-        err instanceof ApiError ? getApiErrorMessage(err.body) : 'No se pudo sincronizar con Classroom'
+        err instanceof ApiError
+          ? getApiErrorMessage(err.body)
+          : err instanceof Error
+            ? err.message
+            : 'No se pudo sincronizar con Classroom'
       )
     } finally {
       setSyncingTaskId(null)
@@ -153,7 +215,7 @@ export function TeacherHome() {
   }
 
   async function syncAllClassroomTasks() {
-    if (!token || syncingTaskId != null || syncingAll) return
+    if (!token || syncingTaskId != null || syncingAll || syncingStudents) return
     const syncable = tasks.filter(isSyncableClassroomTask)
     if (syncable.length === 0) {
       setActionMsgTone('info')
@@ -170,17 +232,33 @@ export function TeacherHome() {
     let failed = 0
 
     try {
+      // Enqueue all quickly so the HTTP layer stays responsive, then poll each run.
+      const enqueued: { taskId: number; runId: number }[] = []
       for (const task of syncable) {
         setSyncingTaskId(task.id)
         try {
-          const result = await postClassroomSync(task.id)
-          rewardedTotal += result.rewarded
+          const job = await enqueueClassroomSync(task.id)
+          enqueued.push({ taskId: task.id, runId: job.runId })
+        } catch {
+          failed += 1
+        }
+      }
+
+      for (const job of enqueued) {
+        setSyncingTaskId(job.taskId)
+        try {
+          const run = await pollClassroomSyncRun(job.runId)
+          if (run.status !== 'completed' || !run.result) {
+            failed += 1
+            continue
+          }
+          rewardedTotal += run.result.rewarded
           skippedTotal +=
-            result.skippedLowGrade +
-            result.skippedNoGrade +
-            result.skippedAlreadyRewarded +
-            result.skippedBudgetExhausted
-          lastBudgetRemaining = result.budgetRemaining
+            run.result.skippedLowGrade +
+            run.result.skippedNoGrade +
+            run.result.skippedAlreadyRewarded +
+            run.result.skippedBudgetExhausted
+          lastBudgetRemaining = run.result.budgetRemaining
         } catch {
           failed += 1
         }
@@ -201,6 +279,38 @@ export function TeacherHome() {
     } finally {
       setSyncingTaskId(null)
       setSyncingAll(false)
+    }
+  }
+
+  async function syncClassroomStudents() {
+    if (!token || syncingStudents || syncingTaskId != null || syncingAll) return
+    setSyncingStudents(true)
+    setActionMsg(null)
+    setActionMsgTone('info')
+    try {
+      const summary = await api.post<ClassroomStudentSyncSummary>(
+        '/integrations/google-classroom/sync-students',
+        { json: {}, token }
+      )
+      const createdPart = summary.created > 0 ? `${summary.created} creado(s)` : null
+      const activatedPart = summary.activated > 0 ? `${summary.activated} activado(s)` : null
+      const linkedPart = `${summary.linked} vinculado(s)`
+      const parts = [createdPart, activatedPart, linkedPart].filter(Boolean).join(', ')
+      setActionMsgTone(summary.created + summary.activated > 0 ? 'success' : 'info')
+      setActionMsg(
+        `Estudiantes sincronizados (${summary.courses} curso(s)): ${parts}.${
+          summary.skipped > 0 ? ` ${summary.skipped} omitido(s).` : ''
+        }`
+      )
+    } catch (err) {
+      setActionMsgTone('error')
+      setActionMsg(
+        err instanceof ApiError
+          ? getApiErrorMessage(err.body)
+          : 'No se pudo sincronizar estudiantes de Classroom'
+      )
+    } finally {
+      setSyncingStudents(false)
     }
   }
 
@@ -259,15 +369,17 @@ export function TeacherHome() {
       />
 
       {error && <div className="alert alert-error">{error}</div>}
-      {syncingTaskId != null || syncingAll ? (
+      {syncingTaskId != null || syncingAll || syncingStudents ? (
         <div role="status" aria-live="polite" className="alert alert-info text-sm">
           <span className="loading loading-spinner loading-sm" aria-hidden />
-          {syncingAll
-            ? 'Sincronizando todas las tareas de Google Classroom. Esto puede tardar unos segundos.'
-            : 'Sincronizando con Google Classroom: cargando calificaciones, revisando entregas y emitiendo recompensas. Esto puede tardar unos segundos.'}
+          {syncingStudents
+            ? 'Sincronizando estudiantes desde Google Classroom…'
+            : syncingAll
+              ? 'Sincronizacion en segundo plano: encolando y procesando tareas de Google Classroom…'
+              : 'Sincronizacion en segundo plano: cargando calificaciones, revisando entregas y emitiendo recompensas…'}
         </div>
       ) : null}
-      {actionMsg && syncingTaskId == null && !syncingAll ? (
+      {actionMsg && syncingTaskId == null && !syncingAll && !syncingStudents ? (
         <div
           role="status"
           aria-live="polite"
@@ -298,7 +410,26 @@ export function TeacherHome() {
             <button
               type="button"
               className="btn btn-outline btn-sm gap-1"
-              disabled={syncingTaskId != null || syncingAll || !tasks.some(isSyncableClassroomTask)}
+              disabled={syncingTaskId != null || syncingAll || syncingStudents}
+              aria-busy={syncingStudents}
+              onClick={() => void syncClassroomStudents()}
+            >
+              {syncingStudents ? (
+                <>
+                  <span className="loading loading-spinner loading-sm" aria-hidden />
+                  Sincronizando…
+                </>
+              ) : (
+                <>
+                  <HiUserGroup className="h-4 w-4" aria-hidden />
+                  Sincronizar estudiantes
+                </>
+              )}
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm gap-1"
+              disabled={syncingTaskId != null || syncingAll || syncingStudents || !tasks.some(isSyncableClassroomTask)}
               aria-busy={syncingAll}
               onClick={() => void syncAllClassroomTasks()}
             >
@@ -364,7 +495,7 @@ export function TeacherHome() {
                             <button
                               type="button"
                               className="btn btn-primary btn-sm gap-1"
-                              disabled={syncingTaskId != null || syncingAll}
+                              disabled={syncingTaskId != null || syncingAll || syncingStudents}
                               aria-busy={syncingTaskId === t.id}
                               onClick={() => void syncClassroomTask(t.id)}
                               title={
@@ -390,7 +521,7 @@ export function TeacherHome() {
                             <button
                               type="button"
                               className="btn btn-outline btn-sm gap-1"
-                              disabled={syncingTaskId != null || syncingAll}
+                              disabled={syncingTaskId != null || syncingAll || syncingStudents}
                               onClick={() => closeTask(t.id)}
                             >
                               <HiLockClosed className="h-4 w-4" aria-hidden />

@@ -190,10 +190,13 @@ export function LoginPage() {
               </form>
 
               <p className="mt-4 text-center text-sm text-base-content/70">
-                Eres estudiante y aun no activas tu cuenta?{' '}
+                Si tu docente sincronizo tu clase de Google Classroom, entra con tu correo y la
+                contrasena inicial; luego cambiala desde el menu de usuario. Si te registraron con
+                matricula,{' '}
                 <Link to="/registro" className="link link-primary font-medium">
-                  Registrarte
+                  activa tu cuenta aqui
                 </Link>
+                .
               </p>
             </div>
           </div>
