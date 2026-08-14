@@ -62,6 +62,11 @@ type ClassroomSyncEnqueue = {
   deduped?: boolean
 }
 
+type ClassroomSyncAllEnqueue = {
+  tasks: number
+  runs: ClassroomSyncEnqueue[]
+}
+
 type ClassroomSyncRun = {
   runId: number
   taskId: number
@@ -216,68 +221,92 @@ export function TeacherHome() {
 
   async function syncAllClassroomTasks() {
     if (!token || syncingTaskId != null || syncingAll || syncingStudents) return
-    const syncable = tasks.filter(isSyncableClassroomTask)
-    if (syncable.length === 0) {
-      setActionMsgTone('info')
-      setActionMsg('No hay tareas activas de Google Classroom para sincronizar en esta pagina.')
-      return
-    }
 
     setSyncingAll(true)
     setActionMsg(null)
     setActionMsgTone('info')
-    let rewardedTotal = 0
-    let skippedTotal = 0
-    let lastBudgetRemaining: number | null = null
-    let failed = 0
 
     try {
-      // Enqueue all quickly so the HTTP layer stays responsive, then poll each run.
-      const enqueued: { taskId: number; runId: number }[] = []
-      for (const task of syncable) {
-        setSyncingTaskId(task.id)
-        try {
-          const job = await enqueueClassroomSync(task.id)
-          enqueued.push({ taskId: task.id, runId: job.runId })
-        } catch {
-          failed += 1
-        }
+      const enqueued = await api.post<ClassroomSyncAllEnqueue>(
+        '/integrations/google-classroom/sync-all',
+        { json: {}, token }
+      )
+
+      if (enqueued.tasks === 0) {
+        setActionMsgTone('info')
+        setActionMsg('No hay tareas activas de Google Classroom para sincronizar.')
+        return
       }
 
-      for (const job of enqueued) {
-        setSyncingTaskId(job.taskId)
-        try {
-          const run = await pollClassroomSyncRun(job.runId)
-          if (run.status !== 'completed' || !run.result) {
-            failed += 1
-            continue
+      if (enqueued.runs.length === 0) {
+        setActionMsgTone('error')
+        setActionMsg('No se pudo sincronizar ninguna tarea con Classroom.')
+        return
+      }
+
+      const polls = await Promise.all(
+        enqueued.runs.map(async (job) => {
+          try {
+            return await pollClassroomSyncRun(job.runId)
+          } catch {
+            return { status: 'pending' as const }
           }
-          rewardedTotal += run.result.rewarded
-          skippedTotal +=
-            run.result.skippedLowGrade +
-            run.result.skippedNoGrade +
-            run.result.skippedAlreadyRewarded +
-            run.result.skippedBudgetExhausted
-          lastBudgetRemaining = run.result.budgetRemaining
-        } catch {
-          failed += 1
+        })
+      )
+
+      let rewardedTotal = 0
+      let skippedTotal = 0
+      let lastBudgetRemaining: number | null = null
+      let failed = enqueued.tasks - enqueued.runs.length
+      let pending = 0
+
+      for (const run of polls) {
+        if (run.status === 'pending') {
+          pending += 1
+          continue
         }
+        if (run.status !== 'completed' || !('result' in run) || !run.result) {
+          failed += 1
+          continue
+        }
+        rewardedTotal += run.result.rewarded
+        skippedTotal +=
+          run.result.skippedLowGrade +
+          run.result.skippedNoGrade +
+          run.result.skippedAlreadyRewarded +
+          run.result.skippedBudgetExhausted
+        lastBudgetRemaining = run.result.budgetRemaining
       }
 
-      if (failed === syncable.length) {
+      const total = enqueued.tasks
+      const ok = total - failed - pending
+      const budgetPart =
+        lastBudgetRemaining != null ? ` Presupuesto restante: ${lastBudgetRemaining}.` : ''
+      const pendingPart =
+        pending > 0
+          ? ` ${pending} sigue(n) en segundo plano; recarga mas tarde.`
+          : ''
+
+      if (failed === total) {
         setActionMsgTone('error')
         setActionMsg('No se pudo sincronizar ninguna tarea con Classroom.')
       } else {
         setActionMsgTone(rewardedTotal > 0 ? 'success' : failed > 0 ? 'error' : 'info')
-        const budgetPart =
-          lastBudgetRemaining != null ? ` Presupuesto restante: ${lastBudgetRemaining}.` : ''
         setActionMsg(
-          `Sincronizacion masiva: ${syncable.length - failed}/${syncable.length} tarea(s) OK. ${rewardedTotal} recompensa(s), ${skippedTotal} omitida(s).${budgetPart}`
+          `Sincronizacion masiva: ${ok}/${total} tarea(s) OK. ${rewardedTotal} recompensa(s), ${skippedTotal} omitida(s).${budgetPart}${pendingPart}`
         )
       }
       await load({ silent: true })
+    } catch (err) {
+      setActionMsgTone('error')
+      setActionMsg(
+        err instanceof ApiError
+          ? getApiErrorMessage(err.body)
+          : err instanceof Error
+            ? err.message
+            : 'No se pudo sincronizar con Classroom'
+      )
     } finally {
-      setSyncingTaskId(null)
       setSyncingAll(false)
     }
   }
@@ -429,7 +458,7 @@ export function TeacherHome() {
             <button
               type="button"
               className="btn btn-outline btn-sm gap-1"
-              disabled={syncingTaskId != null || syncingAll || syncingStudents || !tasks.some(isSyncableClassroomTask)}
+              disabled={syncingTaskId != null || syncingAll || syncingStudents}
               aria-busy={syncingAll}
               onClick={() => void syncAllClassroomTasks()}
             >
