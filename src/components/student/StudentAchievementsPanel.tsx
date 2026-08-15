@@ -26,7 +26,7 @@ type AchievementsResponse = {
 }
 
 /**
- * Milestone / SAS achievement cards for the student home (motivation surface).
+ * Milestone achievement cards for the student home (motivation surface).
  */
 export function StudentAchievementsPanel() {
   const { token } = useAuth()
@@ -71,7 +71,7 @@ export function StudentAchievementsPanel() {
       {achievements.length === 0 ? (
         <EmptyState
           title="Sin logros todavia."
-          detail="Cuando completes actividades recompensadas, veras aqui tus logros atestiguados."
+          detail="Cuando completes actividades recompensadas, veras aqui tus logros."
         />
       ) : (
         <div className="grid gap-3">
@@ -106,7 +106,7 @@ function AchievementsHeader({ rewardedCount }: { rewardedCount?: number }) {
           Tus logros
         </h2>
         <p className="mt-1 text-xs text-base-content/55">
-          Logros academicos atestiguados en Solana cuando alcanzas hitos.
+          Desbloquea logros academicos cuando alcanzas hitos.
           {typeof rewardedCount === 'number' ? (
             <>
               {' '}
@@ -169,33 +169,18 @@ function AchievementCard({ achievement }: { achievement: StudentAchievement }) {
               />
               {achievement.status === 'eligible' ? (
                 <p className="text-xs font-medium text-primary">
-                  Ya cumpliste el hito. El atestado on-chain se emite con el proceso de logros.
+                  Ya cumpliste el hito. Tu logro se desbloqueara pronto.
                 </p>
               ) : null}
               {achievement.status === 'failed' ? (
                 <p className="text-xs text-error">
-                  Hubo un problema al atestiguar este logro. Se reintentara en el proximo barrido.
+                  Hubo un problema al registrar este logro. Se reintentara automaticamente.
                 </p>
               ) : null}
             </div>
           ) : (
             <div className="space-y-2 pt-1">
-              <p className="text-sm font-medium text-primary">Logro desbloqueado y atestiguado en Solana</p>
-              {achievement.attestationPda ? (
-                <p className="break-all font-mono text-[11px] text-base-content/55">
-                  PDA: {achievement.attestationPda}
-                </p>
-              ) : null}
-              {achievement.explorerUrl ? (
-                <a
-                  href={achievement.explorerUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="btn btn-outline btn-primary btn-sm"
-                >
-                  Ver attestation en Explorer
-                </a>
-              ) : null}
+              <p className="text-sm font-medium text-primary">Logro desbloqueado</p>
             </div>
           )}
         </div>
@@ -213,7 +198,7 @@ function AchievementCard({ achievement }: { achievement: StudentAchievement }) {
           {unlocked
             ? 'Desbloqueado'
             : achievement.status === 'eligible'
-              ? 'Listo para atestar'
+              ? 'Listo'
               : achievement.status === 'in_progress'
                 ? 'En progreso'
                 : achievement.status === 'failed'
