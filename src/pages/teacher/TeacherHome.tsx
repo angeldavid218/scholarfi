@@ -1,15 +1,17 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
+  HiArrowPath,
   HiClipboardDocumentList,
   HiLockClosed,
-  HiPlusCircle,
+  HiUserGroup,
 } from 'react-icons/hi2'
+import { Link } from 'react-router-dom'
 import { api, ApiError, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
 import { EmptyState, ExecutiveHero, KpiStrip, SectionCard } from '../../components/ui/executive'
 import { TablePagination } from '../../components/ui/TablePagination'
-import { CREDIT_TOKEN_NAME, TASK_STATUS_LABELS } from '../../i18n/es'
-import { formatId } from '../../i18n/format'
+import { TASK_STATUS_LABELS } from '../../i18n/es'
+import { formatCreditsWithUnit, formatId } from '../../i18n/format'
 import type { PaginatedMeta, PaginatedPayload } from '../../types'
 
 type TaskRow = {
@@ -19,11 +21,74 @@ type TaskRow = {
   rewardAmount: number
   dueAt: string | null
   status: string
+  externalSource?: string
+  syncMetadata?: {
+    minGrade?: number
+    maxPoints?: number | null
+    lastSyncAt?: string | null
+    lastSyncSummary?: {
+      rewarded: number
+      budgetRemaining: number
+    } | null
+  } | null
 }
 
 type TeacherTaskSummary = {
   total: number
   closed: number
+}
+
+type TeacherCreditPool = {
+  teacherId: number
+  allocatedCredits: number
+  utilizedCredits: number
+  remainingCredits: number
+  hasPool: boolean
+}
+
+type ClassroomSyncResult = {
+  rewarded: number
+  skippedLowGrade: number
+  skippedNoGrade: number
+  skippedAlreadyRewarded: number
+  skippedBudgetExhausted: number
+  budgetRemaining: number
+}
+
+type ClassroomSyncEnqueue = {
+  runId: number
+  taskId: number
+  status: string
+  deduped?: boolean
+}
+
+type ClassroomSyncAllEnqueue = {
+  tasks: number
+  runs: ClassroomSyncEnqueue[]
+}
+
+type ClassroomSyncRun = {
+  runId: number
+  taskId: number
+  status: 'queued' | 'running' | 'completed' | 'failed' | string
+  result: ClassroomSyncResult | null
+  errorMessage: string | null
+}
+
+type ClassroomStudentSyncSummary = {
+  courses: number
+  created: number
+  activated: number
+  linked: number
+  skipped: number
+  errors: Array<{ email: string | null; message: string }>
+}
+
+const SYNC_POLL_MS = 1000
+const SYNC_POLL_TIMEOUT_MS = 180_000
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 function statusBadgeClass(status: string): string {
@@ -32,36 +97,57 @@ function statusBadgeClass(status: string): string {
   return 'badge badge-ghost badge-sm'
 }
 
+function formatTaskDueLine(dueAt: string | null): string | null {
+  if (!dueAt) return null
+  const due = new Date(dueAt)
+  if (Number.isNaN(due.getTime())) return null
+  const formatted = new Intl.DateTimeFormat('es-MX', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(due)
+  return `Vence: ${formatted}`
+}
+
+function isSyncableClassroomTask(task: TaskRow): boolean {
+  return task.externalSource === 'google_classroom' && task.status === 'active'
+}
+
 export function TeacherHome() {
   const { token } = useAuth()
   const [tasks, setTasks] = useState<TaskRow[]>([])
   const [tasksMeta, setTasksMeta] = useState<PaginatedMeta | null>(null)
   const [summary, setSummary] = useState<TeacherTaskSummary | null>(null)
+  const [creditPool, setCreditPool] = useState<TeacherCreditPool | null>(null)
   const [tasksPage, setTasksPage] = useState(1)
   const [tasksPerPage, setTasksPerPage] = useState(10)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const [createMsg, setCreateMsg] = useState<string | null>(null)
-
   const [actionMsg, setActionMsg] = useState<string | null>(null)
+  const [actionMsgTone, setActionMsgTone] = useState<'info' | 'success' | 'error'>('info')
+  const [syncingTaskId, setSyncingTaskId] = useState<number | null>(null)
+  const [syncingAll, setSyncingAll] = useState(false)
+  const [syncingStudents, setSyncingStudents] = useState(false)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (options?: { silent?: boolean }) => {
     if (!token) return
     setError(null)
-    setLoading(true)
+    if (!options?.silent) setLoading(true)
     try {
-      const [s, t] = await Promise.all([
+      const [s, t, pool] = await Promise.all([
         api.get<TeacherTaskSummary>('/tasks/summary', { token }),
         api.get<PaginatedPayload<TaskRow>>(`/tasks?page=${tasksPage}&perPage=${tasksPerPage}`, { token }),
+        api.get<TeacherCreditPool>('/teachers/credit-pool', { token }).catch(() => null),
       ])
       setSummary(s)
       setTasks(Array.isArray(t?.items) ? t.items : [])
       setTasksMeta(t?.meta ?? null)
+      setCreditPool(pool)
     } catch (e) {
       setError(e instanceof ApiError ? getApiErrorMessage(e.body) : 'Error al cargar')
     } finally {
-      setLoading(false)
+      if (!options?.silent) setLoading(false)
     }
   }, [token, tasksPage, tasksPerPage])
 
@@ -70,31 +156,190 @@ export function TeacherHome() {
     load()
   }, [load])
 
-  async function createTask(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    if (!token) return
-    setCreateMsg(null)
-    const form = e.currentTarget
-    const fd = new FormData(form)
-    const title = String(fd.get('title') ?? '').trim()
-    const description = String(fd.get('description') ?? '').trim()
-    const rewardAmount = Number(String(fd.get('rewardAmount') ?? ''))
-    const dueAtRaw = String(fd.get('dueAt') ?? '').trim()
-    try {
-      const body: Record<string, unknown> = {
-        title,
-        description,
-        rewardAmount,
+  async function enqueueClassroomSync(id: number): Promise<ClassroomSyncEnqueue> {
+    if (!token) throw new Error('No autenticado')
+    return api.post<ClassroomSyncEnqueue>(`/tasks/${id}/sync-classroom`, { json: {}, token })
+  }
+
+  async function pollClassroomSyncRun(runId: number): Promise<ClassroomSyncRun> {
+    if (!token) throw new Error('No autenticado')
+    const started = Date.now()
+    while (Date.now() - started < SYNC_POLL_TIMEOUT_MS) {
+      const run = await api.get<ClassroomSyncRun>(`/classroom-sync-runs/${runId}`, { token })
+      if (run.status === 'completed' || run.status === 'failed') {
+        return run
       }
-      if (dueAtRaw) body.dueAt = new Date(dueAtRaw).toISOString()
-      await api.post('/tasks', { json: body, token })
-      setCreateMsg('Tarea creada.')
-      form.reset()
-      await load()
+      await sleep(SYNC_POLL_MS)
+    }
+    throw new Error('La sincronizacion tardo demasiado. Revisa el worker (`npm run queue:work`).')
+  }
+
+  async function postClassroomSync(id: number): Promise<ClassroomSyncResult> {
+    const enqueued = await enqueueClassroomSync(id)
+    const run = await pollClassroomSyncRun(enqueued.runId)
+    if (run.status === 'failed') {
+      throw new Error(run.errorMessage || 'No se pudo sincronizar con Classroom')
+    }
+    if (!run.result) {
+      throw new Error('Sincronizacion completada sin resultado')
+    }
+    return run.result
+  }
+
+  function summarizeSyncResult(result: ClassroomSyncResult): string {
+    const skippedTotal =
+      result.skippedLowGrade +
+      result.skippedNoGrade +
+      result.skippedAlreadyRewarded +
+      result.skippedBudgetExhausted
+    return `${result.rewarded} recompensa(s) emitida(s), ${skippedTotal} omitida(s). Presupuesto restante: ${result.budgetRemaining}.`
+  }
+
+  async function syncClassroomTask(id: number) {
+    if (!token || syncingTaskId != null || syncingAll || syncingStudents) return
+    setSyncingTaskId(id)
+    setActionMsg(null)
+    setActionMsgTone('info')
+    try {
+      const result = await postClassroomSync(id)
+      setActionMsgTone(result.rewarded > 0 ? 'success' : 'info')
+      setActionMsg(`Sincronizacion completada: ${summarizeSyncResult(result)}`)
+      await load({ silent: true })
     } catch (err) {
-      setCreateMsg(
-        err instanceof ApiError ? getApiErrorMessage(err.body) : 'No se pudo crear la tarea'
+      setActionMsgTone('error')
+      setActionMsg(
+        err instanceof ApiError
+          ? getApiErrorMessage(err.body)
+          : err instanceof Error
+            ? err.message
+            : 'No se pudo sincronizar con Classroom'
       )
+    } finally {
+      setSyncingTaskId(null)
+    }
+  }
+
+  async function syncAllClassroomTasks() {
+    if (!token || syncingTaskId != null || syncingAll || syncingStudents) return
+
+    setSyncingAll(true)
+    setActionMsg(null)
+    setActionMsgTone('info')
+
+    try {
+      const enqueued = await api.post<ClassroomSyncAllEnqueue>(
+        '/integrations/google-classroom/sync-all',
+        { json: {}, token }
+      )
+
+      if (enqueued.tasks === 0) {
+        setActionMsgTone('info')
+        setActionMsg('No hay tareas activas de Google Classroom para sincronizar.')
+        return
+      }
+
+      if (enqueued.runs.length === 0) {
+        setActionMsgTone('error')
+        setActionMsg('No se pudo sincronizar ninguna tarea con Classroom.')
+        return
+      }
+
+      const polls = await Promise.all(
+        enqueued.runs.map(async (job) => {
+          try {
+            return await pollClassroomSyncRun(job.runId)
+          } catch {
+            return { status: 'pending' as const }
+          }
+        })
+      )
+
+      let rewardedTotal = 0
+      let skippedTotal = 0
+      let lastBudgetRemaining: number | null = null
+      let failed = enqueued.tasks - enqueued.runs.length
+      let pending = 0
+
+      for (const run of polls) {
+        if (run.status === 'pending') {
+          pending += 1
+          continue
+        }
+        if (run.status !== 'completed' || !('result' in run) || !run.result) {
+          failed += 1
+          continue
+        }
+        rewardedTotal += run.result.rewarded
+        skippedTotal +=
+          run.result.skippedLowGrade +
+          run.result.skippedNoGrade +
+          run.result.skippedAlreadyRewarded +
+          run.result.skippedBudgetExhausted
+        lastBudgetRemaining = run.result.budgetRemaining
+      }
+
+      const total = enqueued.tasks
+      const ok = total - failed - pending
+      const budgetPart =
+        lastBudgetRemaining != null ? ` Presupuesto restante: ${lastBudgetRemaining}.` : ''
+      const pendingPart =
+        pending > 0
+          ? ` ${pending} sigue(n) en segundo plano; recarga mas tarde.`
+          : ''
+
+      if (failed === total) {
+        setActionMsgTone('error')
+        setActionMsg('No se pudo sincronizar ninguna tarea con Classroom.')
+      } else {
+        setActionMsgTone(rewardedTotal > 0 ? 'success' : failed > 0 ? 'error' : 'info')
+        setActionMsg(
+          `Sincronizacion masiva: ${ok}/${total} tarea(s) OK. ${rewardedTotal} recompensa(s), ${skippedTotal} omitida(s).${budgetPart}${pendingPart}`
+        )
+      }
+      await load({ silent: true })
+    } catch (err) {
+      setActionMsgTone('error')
+      setActionMsg(
+        err instanceof ApiError
+          ? getApiErrorMessage(err.body)
+          : err instanceof Error
+            ? err.message
+            : 'No se pudo sincronizar con Classroom'
+      )
+    } finally {
+      setSyncingAll(false)
+    }
+  }
+
+  async function syncClassroomStudents() {
+    if (!token || syncingStudents || syncingTaskId != null || syncingAll) return
+    setSyncingStudents(true)
+    setActionMsg(null)
+    setActionMsgTone('info')
+    try {
+      const summary = await api.post<ClassroomStudentSyncSummary>(
+        '/integrations/google-classroom/sync-students',
+        { json: {}, token }
+      )
+      const createdPart = summary.created > 0 ? `${summary.created} creado(s)` : null
+      const activatedPart = summary.activated > 0 ? `${summary.activated} activado(s)` : null
+      const linkedPart = `${summary.linked} vinculado(s)`
+      const parts = [createdPart, activatedPart, linkedPart].filter(Boolean).join(', ')
+      setActionMsgTone(summary.created + summary.activated > 0 ? 'success' : 'info')
+      setActionMsg(
+        `Estudiantes sincronizados (${summary.courses} curso(s)): ${parts}.${
+          summary.skipped > 0 ? ` ${summary.skipped} omitido(s).` : ''
+        }`
+      )
+    } catch (err) {
+      setActionMsgTone('error')
+      setActionMsg(
+        err instanceof ApiError
+          ? getApiErrorMessage(err.body)
+          : 'No se pudo sincronizar estudiantes de Classroom'
+      )
+    } finally {
+      setSyncingStudents(false)
     }
   }
 
@@ -129,102 +374,114 @@ export function TeacherHome() {
     <div className="space-y-6">
       <ExecutiveHero
         eyebrow="Panel docente"
-        title="Operacion de validacion"
-        subtitle="Crea retos, revisa evidencia estudiantil y asegura trazabilidad de cada decision pedagogica."
+        title="Mis tareas de Classroom"
+        subtitle="Importa actividades desde Google Classroom, sincroniza calificaciones y administra el portafolio de tareas de tu clase."
       />
       <KpiStrip
         items={[
           { label: 'Tareas propias', value: formatId(totalTasks), hint: 'Inventario actual' },
-          { label: 'Cola pendiente', value: 'Ver modulo', hint: 'Seccion dedicada en sidebar' },
           {
             label: 'Tasa de cierre',
             value: `${closeRatePct}%`,
             hint: 'Tareas finalizadas',
           },
+          ...(creditPool?.hasPool
+            ? [
+                {
+                  label: 'Presupuesto docente',
+                  value: formatCreditsWithUnit(creditPool.remainingCredits),
+                  hint: 'Disponible para recompensas autonomas',
+                },
+              ]
+            : []),
         ]}
       />
 
       {error && <div className="alert alert-error">{error}</div>}
-      {actionMsg && (
-        <div role="status" className="alert alert-info text-sm">
+      {syncingTaskId != null || syncingAll || syncingStudents ? (
+        <div role="status" aria-live="polite" className="alert alert-info text-sm">
+          <span className="loading loading-spinner loading-sm" aria-hidden />
+          {syncingStudents
+            ? 'Sincronizando estudiantes desde Google Classroom…'
+            : syncingAll
+              ? 'Sincronizacion en segundo plano: encolando y procesando tareas de Google Classroom…'
+              : 'Sincronizacion en segundo plano: cargando calificaciones, revisando entregas y emitiendo recompensas…'}
+        </div>
+      ) : null}
+      {actionMsg && syncingTaskId == null && !syncingAll && !syncingStudents ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className={
+            actionMsgTone === 'success'
+              ? 'alert alert-success text-sm'
+              : actionMsgTone === 'error'
+                ? 'alert alert-error text-sm'
+                : 'alert alert-info text-sm'
+          }
+        >
           {actionMsg}
         </div>
-      )}
-
-      <SectionCard
-        title="Nueva tarea"
-        subtitle="Define actividades con impacto medible y reglas claras de evaluacion."
-        titleIcon={<HiPlusCircle aria-hidden />}
-      >
-        <form className="mt-2 grid max-w-xl gap-4" onSubmit={createTask}>
-          <label className="form-control w-full">
-            <div className="label pt-0">
-              <span className="label-text">Titulo</span>
-            </div>
-            <input
-              name="title"
-              required
-              minLength={2}
-              className="input input-bordered w-full"
-            />
-          </label>
-          <label className="form-control w-full">
-            <div className="label pt-0">
-              <span className="label-text">Descripcion</span>
-            </div>
-            <textarea
-              name="description"
-              required
-              minLength={2}
-              rows={3}
-              className="textarea textarea-bordered w-full"
-            />
-          </label>
-          <label className="form-control w-full">
-            <div className="label pt-0">
-              <span className="label-text">
-                {CREDIT_TOKEN_NAME} (por tarea, &gt; 0)
-              </span>
-            </div>
-            <input
-              name="rewardAmount"
-              type="number"
-              min={0.01}
-              step="any"
-              defaultValue={10}
-              required
-              className="input input-bordered w-full"
-            />
-          </label>
-          <label className="form-control w-full">
-            <div className="label pt-0">
-              <span className="label-text">Fecha limite (opcional)</span>
-            </div>
-            <input name="dueAt" type="datetime-local" className="input input-bordered w-full" />
-          </label>
-          {createMsg && (
-            <div
-              role="status"
-              className={
-                createMsg.includes('creada') ? 'alert alert-success text-sm' : 'alert alert-error text-sm'
-              }
-            >
-              {createMsg}
-            </div>
-          )}
-          <button type="submit" className="btn btn-primary w-fit">
-            Crear
-          </button>
-        </form>
-      </SectionCard>
+      ) : null}
 
       <SectionCard
         title="Mis tareas"
-        subtitle="Portafolio de actividades bajo tu responsabilidad."
+        subtitle="Portafolio de actividades importadas desde Google Classroom."
         titleIcon={<HiClipboardDocumentList aria-hidden />}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="badge badge-ghost badge-sm">
+              {formatId(tasksMeta?.total ?? tasks.length)} registros
+            </span>
+            <Link to="/teacher/integraciones" className="btn btn-outline btn-sm">
+              Importar de Classroom
+            </Link>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm gap-1"
+              disabled={syncingTaskId != null || syncingAll || syncingStudents}
+              aria-busy={syncingStudents}
+              onClick={() => void syncClassroomStudents()}
+            >
+              {syncingStudents ? (
+                <>
+                  <span className="loading loading-spinner loading-sm" aria-hidden />
+                  Sincronizando…
+                </>
+              ) : (
+                <>
+                  <HiUserGroup className="h-4 w-4" aria-hidden />
+                  Sincronizar estudiantes
+                </>
+              )}
+            </button>
+            <button
+              type="button"
+              className="btn btn-outline btn-sm gap-1"
+              disabled={syncingTaskId != null || syncingAll || syncingStudents}
+              aria-busy={syncingAll}
+              onClick={() => void syncAllClassroomTasks()}
+            >
+              {syncingAll ? (
+                <>
+                  <span className="loading loading-spinner loading-sm" aria-hidden />
+                  Sincronizando…
+                </>
+              ) : (
+                <>
+                  <HiArrowPath className="h-4 w-4" aria-hidden />
+                  Sincronizar todo
+                </>
+              )}
+            </button>
+          </div>
+        }
       >
         {(tasksMeta?.total ?? 0) === 0 ? (
-          <EmptyState title="Aun no registras tareas." detail="Crea una tarea para iniciar el ciclo de evidencia." />
+          <EmptyState
+            title="Aun no tienes tareas importadas."
+            detail="Conecta Google Classroom e importa tareas para iniciar el ciclo de recompensas."
+          />
         ) : (
           <div className="space-y-3">
             <div className="overflow-x-auto">
@@ -233,36 +490,79 @@ export function TeacherHome() {
                   <tr>
                     <th>ID</th>
                     <th>Titulo</th>
+                    <th>Origen</th>
                     <th>Estado</th>
                     <th />
                   </tr>
                 </thead>
                 <tbody>
-                  {tasks.map((t) => (
-                    <tr key={t.id}>
-                      <th>{formatId(t.id)}</th>
-                      <td>{t.title}</td>
-                      <td>
-                        <span className={statusBadgeClass(t.status)}>
-                          {TASK_STATUS_LABELS[t.status as keyof typeof TASK_STATUS_LABELS] ?? t.status}
-                        </span>
-                      </td>
-                      <td>
-                        {t.status === 'active' ? (
-                          <button
-                            type="button"
-                            className="btn btn-outline btn-sm gap-1"
-                            onClick={() => closeTask(t.id)}
-                          >
-                            <HiLockClosed className="h-4 w-4" aria-hidden />
-                            Cerrar
-                          </button>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                    </tr>
-                  ))}
+                  {tasks.map((t) => {
+                    const dueLine = formatTaskDueLine(t.dueAt)
+                    return (
+                      <tr key={t.id}>
+                        <th>{formatId(t.id)}</th>
+                        <td>
+                          <div>{t.title}</div>
+                          {dueLine ? (
+                            <div className="text-xs text-base-content/60">{dueLine}</div>
+                          ) : null}
+                        </td>
+                        <td>
+                          {t.externalSource === 'google_classroom' ? (
+                            <span className="badge badge-info badge-sm">Classroom</span>
+                          ) : (
+                            <span className="badge badge-ghost badge-sm">Manual</span>
+                          )}
+                        </td>
+                        <td>
+                          <span className={statusBadgeClass(t.status)}>
+                            {TASK_STATUS_LABELS[t.status as keyof typeof TASK_STATUS_LABELS] ?? t.status}
+                          </span>
+                        </td>
+                        <td className="flex flex-wrap gap-1">
+                          {isSyncableClassroomTask(t) ? (
+                            <button
+                              type="button"
+                              className="btn btn-primary btn-sm gap-1"
+                              disabled={syncingTaskId != null || syncingAll || syncingStudents}
+                              aria-busy={syncingTaskId === t.id}
+                              onClick={() => void syncClassroomTask(t.id)}
+                              title={
+                                t.syncMetadata?.minGrade != null
+                                  ? `Nota minima: ${t.syncMetadata.minGrade}`
+                                  : undefined
+                              }
+                            >
+                              {syncingTaskId === t.id ? (
+                                <>
+                                  <span className="loading loading-spinner loading-sm" aria-hidden />
+                                  Sincronizando…
+                                </>
+                              ) : (
+                                <>
+                                  <HiArrowPath className="h-4 w-4" aria-hidden />
+                                  Sincronizar
+                                </>
+                              )}
+                            </button>
+                          ) : null}
+                          {t.status === 'active' ? (
+                            <button
+                              type="button"
+                              className="btn btn-outline btn-sm gap-1"
+                              disabled={syncingTaskId != null || syncingAll || syncingStudents}
+                              onClick={() => closeTask(t.id)}
+                            >
+                              <HiLockClosed className="h-4 w-4" aria-hidden />
+                              Cerrar
+                            </button>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

@@ -55,7 +55,7 @@ export function AdminHome() {
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [role, setRole] = useState<'teacher' | 'student'>('student')
+  const [role, setRole] = useState<'teacher' | 'student' | 'school_admin'>('student')
 
   const [assignUserId, setAssignUserId] = useState('')
   const [assignRole, setAssignRole] = useState<'teacher' | 'student' | 'school_admin'>('teacher')
@@ -263,11 +263,14 @@ export function AdminHome() {
               </div>
               <select
                 value={role}
-                onChange={(e) => setRole(e.target.value as 'teacher' | 'student')}
+                onChange={(e) =>
+                  setRole(e.target.value as 'teacher' | 'student' | 'school_admin')
+                }
                 className="select select-bordered w-full"
               >
                 <option value="student">Estudiante</option>
                 <option value="teacher">Docente</option>
+                <option value="school_admin">Admin escolar</option>
               </select>
             </label>
             <button type="submit" className="btn btn-primary w-fit">

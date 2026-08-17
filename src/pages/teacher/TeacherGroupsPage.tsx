@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
-import { HiArrowUpTray, HiUserGroup } from 'react-icons/hi2'
+import { HiArrowUpTray, HiLink, HiUserGroup } from 'react-icons/hi2'
+import { Link } from 'react-router-dom'
 import { api, ApiError, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
 import { EmptyState, ExecutiveHero, KpiStrip, SectionCard } from '../../components/ui/executive'
@@ -52,14 +53,14 @@ type GroupRow = {
   externalSource: string
 }
 
-const CSV_TEMPLATE = `student_email,student_name,subject,section
-maria@school.edu,María García,Matemáticas,3°A
-juan@school.edu,Juan Pérez,Matemáticas,3°A`
+const CSV_TEMPLATE = `student_email,student_name,registration_number,subject,section
+maria@school.edu,María García,2024001,Matemáticas,3°A
+juan@school.edu,Juan Pérez,2024002,Matemáticas,3°A`
 
 const EMPTY_MAPPING: GroupImportColumnMapping = {}
 
 function isFieldRequired(field: GroupImportField): boolean {
-  return field === 'student_email'
+  return field === 'student_email' || field === 'registration_number'
 }
 
 function isFieldConditionallyRequired(field: GroupImportField): boolean {
@@ -213,8 +214,15 @@ export function TeacherGroupsPage() {
       <ExecutiveHero
         eyebrow="Panel docente"
         title="Mis clases"
-        subtitle="Organiza estudiantes por materia y sección. Importa tu roster desde CSV antes de conectar Google Classroom."
+        subtitle="Organiza estudiantes por materia y sección. Importa tu roster desde CSV o conecta Google Classroom."
       />
+
+      <div className="flex justify-end">
+        <Link to="/teacher/integraciones" className="btn btn-outline btn-sm gap-1">
+          <HiLink className="h-4 w-4" aria-hidden />
+          Conectar Google Classroom
+        </Link>
+      </div>
 
       {error && <div className="alert alert-error">{error}</div>}
 

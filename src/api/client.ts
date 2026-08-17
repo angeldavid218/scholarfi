@@ -96,4 +96,7 @@ export const api = {
       token: opts.token,
       body: opts.formData,
     }),
+
+  delete: <T>(path: string, opts?: { token?: string | null }) =>
+    apiRequest<T>('DELETE', path, { token: opts?.token }),
 }

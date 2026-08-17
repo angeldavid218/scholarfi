@@ -1,34 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
-import { HiWallet } from 'react-icons/hi2'
+import { HiGift, HiWallet } from 'react-icons/hi2'
 import { api, ApiError, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
-import { KpiStrip } from '../../components/ui/executive'
+import { StudentAchievementsPanel } from '../../components/student/StudentAchievementsPanel'
+import { EmptyState, KpiStrip } from '../../components/ui/executive'
 import { CREDIT_TOKEN_NAME } from '../../i18n/es'
 import { formatAmount, formatCreditsWithUnit, formatId } from '../../i18n/format'
-
-const MARKETPLACE_ITEMS = [
-  {
-    id: 'museum-pass',
-    title: 'Pase para Museo de arte',
-    credits: 500,
-    imageSrc: '/museum.jpg',
-    imageAlt: 'Entrada ilustrativa a un museo de arte',
-  },
-  {
-    id: 'robotics-course',
-    title: 'Curso de Robotica',
-    credits: 800,
-    imageSrc: '/robots.jpg',
-    imageAlt: 'Taller de robotica y componentes electronicos',
-  },
-  {
-    id: 'theater-romeo-juliet',
-    title: 'Pase para teatro obra romeo y julieta',
-    credits: 500,
-    imageSrc: '/theather.jpg',
-    imageAlt: 'Escenario de teatro con telon',
-  },
-] as const
 
 type TaskRow = { id: number }
 type SubmissionRow = { id: number }
@@ -36,6 +13,14 @@ type SubmissionRow = { id: number }
 type Balance = {
   simulatedBalance: number
   institutionId: number | null
+}
+
+type CatalogReward = {
+  id: number
+  title: string
+  description: string | null
+  creditCost: number
+  isActive: boolean
 }
 
 /**
@@ -46,22 +31,28 @@ export function StudentHome() {
   const [balance, setBalance] = useState<Balance | null>(null)
   const [taskCount, setTaskCount] = useState(0)
   const [submissionCount, setSubmissionCount] = useState(0)
+  const [catalog, setCatalog] = useState<CatalogReward[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [redeemMsg, setRedeemMsg] = useState<string | null>(null)
+  const [redeemTone, setRedeemTone] = useState<'info' | 'success' | 'error'>('info')
+  const [redeemBusyId, setRedeemBusyId] = useState<number | null>(null)
 
   const load = useCallback(async () => {
     if (!token) return
     setError(null)
     setLoading(true)
     try {
-      const [b, t, s] = await Promise.all([
+      const [b, t, s, rewards] = await Promise.all([
         api.get<Balance>('/rewards/balance', { token }),
         api.get<TaskRow[]>('/tasks/available', { token }),
         api.get<SubmissionRow[]>('/submissions', { token }),
+        api.get<CatalogReward[]>('/rewards/catalog', { token }),
       ])
       setBalance(b)
       setTaskCount(Array.isArray(t) ? t.length : 0)
       setSubmissionCount(Array.isArray(s) ? s.length : 0)
+      setCatalog(Array.isArray(rewards) ? rewards : [])
     } catch (e) {
       setError(e instanceof ApiError ? getApiErrorMessage(e.body) : 'Error al cargar')
     } finally {
@@ -73,6 +64,29 @@ export function StudentHome() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     load()
   }, [load])
+
+  async function redeemReward(reward: CatalogReward) {
+    if (!token) return
+    setRedeemMsg(null)
+    setRedeemBusyId(reward.id)
+    try {
+      await api.post('/redemptions', {
+        token,
+        json: { rewardId: reward.id },
+      })
+      setRedeemTone('success')
+      setRedeemMsg(
+        `Solicitud de canje enviada para "${reward.title}". Un admin escolar la revisara.`
+      )
+      const b = await api.get<Balance>('/rewards/balance', { token })
+      setBalance(b)
+    } catch (e) {
+      setRedeemTone('error')
+      setRedeemMsg(e instanceof ApiError ? getApiErrorMessage(e.body) : 'No se pudo solicitar el canje')
+    } finally {
+      setRedeemBusyId(null)
+    }
+  }
 
   if (loading) {
     return (
@@ -148,6 +162,9 @@ export function StudentHome() {
           . Consulta resultados en <span className="font-medium text-base-content/70">Mis envios</span>.
         </p>
       </div>
+
+      <StudentAchievementsPanel />
+
       <div className="divider"></div>
       <section className="space-y-3" aria-labelledby="student-marketplace-heading">
         <div>
@@ -158,35 +175,72 @@ export function StudentHome() {
             Marketplace
           </h2>
           <p className="mt-1 text-xs text-base-content/55">
-            Ejemplos fijos para la demo — el canje real estará disponible más adelante.
+            Recompensas internas de tu colegio. Al canjear, un admin escolar aprueba y se debitan tus creditos.
           </p>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {MARKETPLACE_ITEMS.map((item) => (
-            <article
-              key={item.id}
-              className="card overflow-hidden border border-base-300 bg-base-100 shadow-sm transition-shadow hover:shadow-md"
-            >
-              <figure className="relative aspect-[4/3] w-full bg-base-200">
-                <img
-                  src={item.imageSrc}
-                  alt={item.imageAlt}
-                  className="h-full w-full object-cover"
-                  loading="lazy"
-                />
-              </figure>
-              <div className="card-body gap-2 p-4">
-                <h3 className="card-title text-base leading-snug">{item.title}</h3>
-                <p className="text-lg font-semibold tabular-nums text-primary">
-                  {formatCreditsWithUnit(item.credits)}
-                </p>
-                <button type="button" className="btn btn-primary btn-sm w-full" disabled>
-                  Canjear
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
+
+        {redeemMsg && (
+          <div
+            role="status"
+            className={`alert text-sm ${
+              redeemTone === 'success'
+                ? 'alert-success'
+                : redeemTone === 'error'
+                  ? 'alert-error'
+                  : 'alert-info'
+            }`}
+          >
+            {redeemMsg}
+          </div>
+        )}
+
+        {catalog.length === 0 ? (
+          <EmptyState
+            title="Sin recompensas disponibles."
+            detail="Cuando tu colegio publique recompensas internas, las veras aqui."
+          />
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {catalog.map((item) => {
+              const canAfford = creditsBalance >= item.creditCost
+              const busy = redeemBusyId === item.id
+              return (
+                <article
+                  key={item.id}
+                  className="card overflow-hidden border border-base-300 bg-base-100 shadow-sm transition-shadow hover:shadow-md"
+                >
+                  <figure className="relative flex aspect-[4/3] w-full items-center justify-center bg-gradient-to-br from-primary/10 via-base-200 to-base-300">
+                    <HiGift className="h-14 w-14 text-primary/70" aria-hidden />
+                  </figure>
+                  <div className="card-body gap-2 p-4">
+                    <h3 className="card-title text-base leading-snug">{item.title}</h3>
+                    {item.description ? (
+                      <p className="line-clamp-2 text-sm text-base-content/70">{item.description}</p>
+                    ) : null}
+                    <p className="text-lg font-semibold tabular-nums text-primary">
+                      {formatCreditsWithUnit(item.creditCost)}
+                    </p>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm w-full"
+                      disabled={busy || !canAfford}
+                      onClick={() => redeemReward(item)}
+                      title={!canAfford ? 'Creditos insuficientes' : undefined}
+                    >
+                      {busy ? (
+                        <span className="loading loading-spinner loading-sm" aria-label="Canjeando" />
+                      ) : canAfford ? (
+                        'Canjear'
+                      ) : (
+                        'Creditos insuficientes'
+                      )}
+                    </button>
+                  </div>
+                </article>
+              )
+            })}
+          </div>
+        )}
       </section>
     </div>
   )

@@ -68,6 +68,9 @@ export const INSTITUTION_CRYPTO_WALLETS_LABELS = {
 
 const API_ERROR_CODE_MESSAGES: Record<string, string> = {
   INVALID_CREDENTIALS: 'Credenciales invalidas.',
+  ACCOUNT_PENDING_REGISTRATION: 'Debes completar tu registro antes de iniciar sesion.',
+  STUDENT_REGISTRATION_INVALID:
+    'No se pudo activar la cuenta. Verifica tu correo y matricula.',
   VALIDATION_ERROR: 'Revisa los campos y vuelve a intentar.',
   INSTITUTION_CODE_TAKEN: 'Ese codigo de institucion ya existe.',
   NGO_INSTITUTION_CODE_TAKEN: 'Ese codigo de ONG ya existe.',
@@ -79,6 +82,14 @@ const API_ERROR_CODE_MESSAGES: Record<string, string> = {
   TRANSITION_NOT_ALLOWED: 'La accion no es valida para el estado actual.',
   AUTHENTICATION_REQUIRED: 'Tu sesion no es valida. Inicia sesion de nuevo.',
   EMAIL_TAKEN: 'Ese correo ya esta registrado.',
+  REWARD_NOT_FOUND: 'La recompensa no esta disponible.',
+  INSUFFICIENT_CREDITS: 'No tienes suficientes creditos para este canje.',
+  INVALID_REDEMPTION_STATE: 'El canje no esta pendiente de decision.',
+  REDEMPTION_NOT_FOUND: 'No se encontro la solicitud de canje.',
+  REDEMPTION_EXECUTION_FAILED: 'No se pudo completar el canje.',
+  CURRENT_PASSWORD_INVALID: 'La contrasena actual es incorrecta.',
+  GOOGLE_CLASSROOM_NOT_CONNECTED: 'Conecta Google Classroom antes de continuar.',
+  CLASSROOM_STUDENT_SYNC_FAILED: 'No se pudo sincronizar estudiantes de Classroom.',
 }
 
 export function getApiErrorEsMessage(code?: string | null): string | null {
