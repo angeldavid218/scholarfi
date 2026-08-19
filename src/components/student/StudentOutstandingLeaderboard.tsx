@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { HiTrophy } from 'react-icons/hi2'
+import { HiAcademicCap, HiTrophy } from 'react-icons/hi2'
 import { api } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
 import { EmptyState } from '../ui/executive'
@@ -12,6 +12,7 @@ export type StudentLeaderboardEntry = {
   points: number
   contributionCount: number
   isCurrentUser: boolean
+  hasDiploma?: boolean
 }
 
 export type StudentLeaderboardResponse = {
@@ -138,6 +139,12 @@ function StudentLeaderboardRow({ entry }: { entry: StudentLeaderboardEntry }) {
           {entry.displayName}
           {entry.isCurrentUser ? (
             <span className="ml-2 text-xs font-normal text-primary">Tu</span>
+          ) : null}
+          {entry.hasDiploma ? (
+            <span className="ml-2 inline-flex items-center gap-1 text-xs font-medium text-primary">
+              <HiAcademicCap className="h-3.5 w-3.5" aria-hidden />
+              Diploma
+            </span>
           ) : null}
         </p>
         <p className="text-xs text-base-content/55">

@@ -69,6 +69,7 @@ export function AppShell() {
           { to: '/admin/presupuesto-docentes', label: 'Presupuesto docentes', Icon: HiBanknotes },
           { to: '/admin/recompensas-internas', label: 'Recompensas internas', Icon: HiGift },
           { to: '/admin/cola-aprobacion', label: 'Cola de aprobacion', Icon: HiClipboardDocumentCheck },
+          { to: '/admin/diploma', label: 'Reconocimiento académico', Icon: HiAcademicCap },
         ] as NavItem[])
       : []),
     ...(roles.includes('ngo_admin')
