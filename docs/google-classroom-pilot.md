@@ -49,7 +49,7 @@ Set `GOOGLE_CLASSROOM_MOCK=true` in `scholarfi-back/.env` to exercise the flow *
 
 Hand this to evaluators: [judge-instructions.md](./judge-instructions.md) (English and Spanish).
 
-- Login shows demo role chips. Password is `DemoPass123!`.
+- Sign in with demo emails and `DemoPass123!` from the backend README.
 - Mock grades come from `scholarfi-back/fixtures/demo_students.ts`.
 - Mock sync runs inline (no `npm run queue:work`).
 - `demo:reset` turns wallets on when `TOKEN_MODE=solana`.

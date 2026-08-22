@@ -17,23 +17,16 @@ ScholarFi turns classroom activity into on-chain ScholarFi Credits, Solana Attes
 
 ### 1. Sign in
 
-Open `/login`. Use the role chips (no typing required):
+Open `/login` and type the credentials from the backend README (or the list below). Password is `DemoPass123!`.
 
-| Chip | Role | What to look at |
+| Role | Email | What to look at |
 |------|------|-----------------|
-| **Docente** | Teacher | Import fixture tasks and sync rewards |
-| **Estudiante** | Student (Sofia Hernandez) | Balance, ranking, explorer links |
-| **Admin escolar** | School admin | SAS attestations and NFT diploma |
-| **Super admin** | Platform admin | Institutions and crypto wallets |
+| Teacher | `demo.teacher@scholarfi.test` | Import fixture tasks and sync rewards |
+| Student (Sofia Hernandez) | `sofia.hernandez@scholarfi.test` | Balance, ranking, explorer links |
+| School admin | `demo.admin@scholarfi.test` | SAS attestations and NFT diploma |
+| Super admin | `demo.super@scholarfi.test` | Institutions and crypto wallets |
 
-If the chips are missing, use `DemoPass123!` with:
-
-- Teacher: `demo.teacher@scholarfi.test`
-- Student: `sofia.hernandez@scholarfi.test`
-- School admin: `demo.admin@scholarfi.test`
-- Super admin: `demo.super@scholarfi.test`
-
-To switch roles, log out from the header user menu and pick another chip.
+To switch roles, log out from the header user menu and sign in with another account.
 
 ### 2. Teacher — import and sync (no Google)
 
@@ -93,23 +86,16 @@ ScholarFi convierte la actividad de clase en ScholarFi Credits on-chain, hitos d
 
 ### 1. Iniciar sesión
 
-Abre `/login`. Usa los botones de rol (no hace falta escribir):
+Abre `/login` e introduce las credenciales del README del backend (o la lista de abajo). La contraseña es `DemoPass123!`.
 
-| Botón | Rol | Qué revisar |
+| Rol | Correo | Qué revisar |
 |------|------|-------------|
-| **Docente** | Profesor | Importar tareas de demo y sincronizar recompensas |
-| **Estudiante** | Sofia Hernandez | Saldo, ranking y enlaces al explorer |
-| **Admin escolar** | Administración | Attestaciones SAS y diploma NFT |
-| **Super admin** | Plataforma | Instituciones y wallets cripto |
+| Docente | `demo.teacher@scholarfi.test` | Importar tareas de demo y sincronizar recompensas |
+| Estudiante (Sofia Hernandez) | `sofia.hernandez@scholarfi.test` | Saldo, ranking y enlaces al explorer |
+| Admin escolar | `demo.admin@scholarfi.test` | Attestaciones SAS y diploma NFT |
+| Super admin | `demo.super@scholarfi.test` | Instituciones y wallets cripto |
 
-Si no aparecen los botones, usa la contraseña `DemoPass123!` con:
-
-- Docente: `demo.teacher@scholarfi.test`
-- Estudiante: `sofia.hernandez@scholarfi.test`
-- Admin escolar: `demo.admin@scholarfi.test`
-- Super admin: `demo.super@scholarfi.test`
-
-Para cambiar de rol, cierra sesión en el menú del encabezado y elige otro botón.
+Para cambiar de rol, cierra sesión en el menú del encabezado e inicia sesión con otra cuenta.
 
 ### 2. Docente — importar y sincronizar (sin Google)
 
