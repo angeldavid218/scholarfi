@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import type { IconType } from 'react-icons'
 import {
   HiAcademicCap,
@@ -6,6 +6,7 @@ import {
   HiBars3,
   HiBanknotes,
   HiBuildingOffice2,
+  HiCheckBadge,
   HiChevronDown,
   HiClipboardDocumentCheck,
   HiClipboardDocumentList,
@@ -20,6 +21,7 @@ import {
 import { NavLink, Outlet } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { ApiError, getApiErrorMessage } from '../api/client'
+import { loadDemoConfig } from '../demo/demoConfig'
 import { ScholarFiWordmark } from './BrandLogos'
 
 function sidebarItemClass(isActive: boolean) {
@@ -46,8 +48,19 @@ export function AppShell() {
   const [passwordSubmitting, setPasswordSubmitting] = useState(false)
   const [passwordError, setPasswordError] = useState<string | null>(null)
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null)
+  const [classroomDemoNav, setClassroomDemoNav] = useState(false)
   const showInternalModeBadge =
     tokenModeLabel.length > 0 && !roles.includes('student')
+
+  useEffect(() => {
+    let cancelled = false
+    void loadDemoConfig().then((config) => {
+      if (!cancelled) setClassroomDemoNav(config.enabled === true && config.classroomMock)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const panelItems: NavItem[] = [
     ...(roles.includes('student')
@@ -60,7 +73,7 @@ export function AppShell() {
       ? ([
           { to: '/teacher', end: true, label: 'Docente', Icon: HiClipboardDocumentList },
           { to: '/teacher/clases', label: 'Mis clases', Icon: HiUserGroup },
-          { to: '/teacher/integraciones', label: 'Google Classroom', Icon: HiLink },
+          { to: '/teacher/integraciones', label: classroomDemoNav ? 'Classroom (demo)' : 'Google Classroom', Icon: HiLink },
         ] as NavItem[])
       : []),
     ...(roles.includes('school_admin')
@@ -70,6 +83,7 @@ export function AppShell() {
           { to: '/admin/recompensas-internas', label: 'Recompensas internas', Icon: HiGift },
           { to: '/admin/cola-aprobacion', label: 'Cola de aprobacion', Icon: HiClipboardDocumentCheck },
           { to: '/admin/diploma', label: 'Reconocimiento académico', Icon: HiAcademicCap },
+          { to: '/admin/attestaciones', label: 'Attestaciones SAS', Icon: HiCheckBadge },
         ] as NavItem[])
       : []),
     ...(roles.includes('ngo_admin')

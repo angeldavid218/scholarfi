@@ -15,7 +15,7 @@ Follow [scholarfi-back/docs/google-classroom-setup.md](../../scholarfi-back/docs
 
 1. **Admin** allocates teacher budget at `/admin/presupuesto-docentes`
 2. **Students** exist with the same email as Google Classroom mock grades (see table below)
-3. **Teacher** connects at `/teacher/integraciones`
+3. **Teacher** connects at `/teacher/integraciones` (mock: **Usar Classroom de demo**, no Google account)
 4. **Pilot course** in Classroom has assignments with `maxPoints` and graded `assignedGrade` values
 
 ### Mock roster CSV
@@ -28,13 +28,15 @@ Columns: `student_email`, `student_name`, `subject`, `section`, `class_name`
 
 After `node ace demo:reset`, all five students below are already seeded. You can still import the CSV to verify the roster flow or refresh classroom-aligned groups (`Matematicas 3A`, `Ciencias 3A`).
 
-| Email | Password | Mock grade (min 6) |
-|-------|----------|-------------------|
-| `demo.student1@scholarfi.test` | `DemoPass123!` | 8 — rewarded |
-| `demo.student2@scholarfi.test` | `DemoPass123!` | 5 — skipped (below min) |
-| `student-alpha@school.edu` | `DemoPass123!` | 8 — rewarded |
-| `student-beta@school.edu` | `DemoPass123!` | 5 — skipped |
-| `student-gamma@school.edu` | `DemoPass123!` | (none) — skipped (ungraded) |
+| Email | Name | Password | Mock grade (min 6) |
+|-------|------|----------|-------------------|
+| `sofia.hernandez@scholarfi.test` | Sofia Hernandez | `DemoPass123!` | 8 — rewarded |
+| `mateo.vargas@scholarfi.test` | Mateo Vargas | `DemoPass123!` | 5 — skipped (below min) |
+| `valentina.rojas@school.edu` | Valentina Rojas | `DemoPass123!` | 8 — rewarded |
+| `lucas.mendez@school.edu` | Lucas Mendez | `DemoPass123!` | 5 — skipped |
+| `camila.torres@school.edu` | Camila Torres | `DemoPass123!` | (none) — skipped (ungraded) |
+
+**Sincronizar estudiantes** also registers roster-only: Andres Castillo (`andres.castillo@school.edu`), Isabella Nunez (`isabella.nunez@school.edu`) with password `scholarfi-pass`.
 
 ## End-to-end flow
 
@@ -46,8 +48,15 @@ After `node ace demo:reset`, all five students below are already seeded. You can
 6. Teacher clicks **Sincronizar** on the task in `/teacher`
 7. Rewards are issued in ScholarFi completion order until teacher budget reaches zero
 
-## Local mock mode
+## Local mock / judge sandbox
 
-Set `GOOGLE_CLASSROOM_MOCK=true` in `scholarfi-back/.env` to exercise the flow without real Google credentials.
+Set `GOOGLE_CLASSROOM_MOCK=true` in `scholarfi-back/.env` to exercise the flow **without a Google account**.
 
-Mock grade fixtures apply to **any** imported task when mock mode is on. Student emails and grades are defined in `scholarfi-back/fixtures/demo_students.ts` (single source of truth for seed + Classroom mock sync).
+Hand this to evaluators: [judge-instructions.md](./judge-instructions.md) (English and Spanish).
+
+- Login shows demo role chips. Password is `DemoPass123!`.
+- Mock grades come from `scholarfi-back/fixtures/demo_students.ts`.
+- Mock sync runs inline (no `npm run queue:work`).
+- `demo:reset` turns wallets on when `TOKEN_MODE=solana`.
+
+Mock grade fixtures apply to **any** imported task when mock mode is on.
