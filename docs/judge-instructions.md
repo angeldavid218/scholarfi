@@ -15,6 +15,8 @@ The product UI is in Spanish. Button labels below match what you will see on scr
 
 ScholarFi turns classroom activity into on-chain ScholarFi Credits, Solana Attestation Service (SAS) milestones, and a compressed NFT diploma for the top-ranked student. Demo data is already seeded. You only click through the teacher import/sync flow, then visit the other roles.
 
+Student wallets are **custodial**: the backend creates a Solana keypair per student and signs on their behalf. You will not connect Phantom or any browser wallet.
+
 ### 1. Sign in
 
 Open `/login` and type the credentials from the backend README (or the list below). Password is `DemoPass123!`.
@@ -81,6 +83,8 @@ Same password `DemoPass123!`: `valentina.rojas@school.edu`.
 ### Qué vas a ver
 
 ScholarFi convierte la actividad de clase en ScholarFi Credits on-chain, hitos de Solana Attestation Service (SAS) y un diploma NFT comprimido para el estudiante en el puesto 1. Los datos de demo ya están cargados. Solo tienes que importar y sincronizar como docente, y luego visitar el resto de roles.
+
+Las wallets de los estudiantes son **custodiales**: el backend crea un keypair de Solana por estudiante y firma por ellos. No conectas Phantom ni ninguna wallet del navegador.
 
 **No necesitas una cuenta de Google Classroom.** Cursos, tareas y calificaciones salen de fixtures.
 

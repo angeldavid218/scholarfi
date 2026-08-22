@@ -58,7 +58,8 @@ Role-based routes (after login via `POST /auth/login`, token in `sessionStorage`
 - **Design:** Tailwind CSS v4 + daisyUI 5, theme `scholarfi` in `src/index.css`; Plus Jakarta Sans in `index.html`.
 - **PostCSS:** `@tailwindcss/postcss` in `postcss.config.mjs` (no `@tailwindcss/vite` — Vite 8 left utilities unparsed).
 - **Demo UI kit:** `/demo` (`DemoPage.tsx`) for component showcase.
-- **Login:** split layout with Solana ecosystem branding (`BrandLogos.tsx`); rewards remain simulated (no wallet integration).
+- **Login:** split layout with Solana ecosystem branding (`BrandLogos.tsx`).
+- **Wallets:** student Solana wallets are **custodial** (created and signed by the backend). The SPA never connects Phantom or a wallet adapter — explorer links are read-only.
 
 ## Optional environment variables
 
