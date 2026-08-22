@@ -26,17 +26,12 @@ With `GOOGLE_CLASSROOM_MOCK=true`, import the demo roster at `/teacher/clases`:
 
 Columns: `student_email`, `student_name`, `subject`, `section`, `class_name`
 
-After `node ace demo:reset`, all five students below are already seeded. You can still import the CSV to verify the roster flow or refresh classroom-aligned groups (`Matematicas 3A`, `Ciencias 3A`).
+After `node ace demo:reset`, both students below are already seeded. You can still import the CSV to verify the roster flow or refresh the classroom-aligned group (`Matematicas 3A`).
 
 | Email | Name | Password | Mock grade (min 6) |
 |-------|------|----------|-------------------|
 | `sofia.hernandez@scholarfi.test` | Sofia Hernandez | `DemoPass123!` | 8 — rewarded |
-| `mateo.vargas@scholarfi.test` | Mateo Vargas | `DemoPass123!` | 5 — skipped (below min) |
 | `valentina.rojas@school.edu` | Valentina Rojas | `DemoPass123!` | 8 — rewarded |
-| `lucas.mendez@school.edu` | Lucas Mendez | `DemoPass123!` | 5 — skipped |
-| `camila.torres@school.edu` | Camila Torres | `DemoPass123!` | (none) — skipped (ungraded) |
-
-**Sincronizar estudiantes** also registers roster-only: Andres Castillo (`andres.castillo@school.edu`), Isabella Nunez (`isabella.nunez@school.edu`) with password `scholarfi-pass`.
 
 ## End-to-end flow
 

@@ -104,7 +104,7 @@ export function TeacherIntegrationsPage() {
       await loadStatus()
       setActionMsg(
         data.mockMode || data.connected
-          ? 'Classroom de demo conectado. Importa Matematicas 3A (5 tareas) para sincronizar.'
+          ? 'Classroom de demo conectado. Importa Matematicas 3A (2 tareas) para sincronizar.'
           : 'Google Classroom conectado correctamente.'
       )
     } catch (e) {
@@ -267,7 +267,7 @@ export function TeacherIntegrationsPage() {
         title={status?.mockMode ? 'Classroom (demo)' : 'Google Classroom'}
         subtitle={
           status?.mockMode
-            ? 'Usa el Classroom de fixtures: importa Matematicas 3A (5 tareas) y sincroniza calificaciones de demo. No se necesita cuenta de Google.'
+            ? 'Usa el Classroom de fixtures: importa Matematicas 3A (2 tareas) y sincroniza calificaciones de demo. No se necesita cuenta de Google.'
             : 'Conecta tu cuenta, importa tareas con recompensa y sincroniza calificaciones cuando los estudiantes completen en ScholarFi.'
         }
       />
@@ -288,7 +288,7 @@ export function TeacherIntegrationsPage() {
 
       {status?.mockMode ? (
         <div role="status" className="alert alert-info text-sm">
-          Las tareas y calificaciones salen de fixtures (Matematicas 3A tiene 5 items; Sofia y
+          Las tareas y calificaciones salen de fixtures (Matematicas 3A tiene 2 items; Sofia y
           Valentina tienen nota 8). No hay conexion a Google.
         </div>
       ) : null}

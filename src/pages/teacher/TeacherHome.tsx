@@ -485,7 +485,7 @@ export function TeacherHome() {
             title="Aun no tienes tareas importadas."
             detail={
               classroomDemo
-                ? 'Importa las tareas de demo en Integraciones (Matematicas 3A, las 5 actividades).'
+                ? 'Importa las tareas de demo en Integraciones (Matematicas 3A, las 2 actividades).'
                 : 'Conecta Google Classroom e importa tareas para iniciar el ciclo de recompensas.'
             }
           />
