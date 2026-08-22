@@ -2,8 +2,10 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/AppShell'
 import { RequireAuth } from './components/RequireAuth'
 import { RoleGate } from './components/RoleGate'
+import { AdminAttestationsPage } from './pages/admin/AdminAttestationsPage'
 import { AdminApprovalQueuePage } from './pages/admin/AdminApprovalQueuePage'
 import { AdminBitacoraAprobacionPage } from './pages/admin/AdminBitacoraAprobacionPage'
+import { AdminDiplomaPage } from './pages/admin/AdminDiplomaPage'
 import { AdminHome } from './pages/admin/AdminHome'
 import { AdminInternalRewardsPage } from './pages/admin/AdminInternalRewardsPage'
 import { AdminTeacherBudgetPage } from './pages/admin/AdminTeacherBudgetPage'
@@ -51,6 +53,8 @@ export default function App() {
             <Route path="admin/recompensas-internas" element={<AdminInternalRewardsPage />} />
             <Route path="admin/cola-aprobacion" element={<AdminApprovalQueuePage />} />
             <Route path="admin/bitacora-aprobacion" element={<AdminBitacoraAprobacionPage />} />
+            <Route path="admin/diploma" element={<AdminDiplomaPage />} />
+            <Route path="admin/attestaciones" element={<AdminAttestationsPage />} />
           </Route>
           <Route element={<RoleGate allow={['ngo_admin']} />}>
             <Route path="ngo" element={<NgoHome />} />

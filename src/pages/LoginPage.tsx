@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import {
   HiArrowRightOnRectangle,
   HiEye,
@@ -9,6 +9,7 @@ import {
 import { Link, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { ScholarFiWordmark, SolanaMark } from '../components/BrandLogos'
+import { loadDemoConfig, type DemoConfig, type DemoLoginAccount } from '../demo/demoConfig'
 
 export function LoginPage() {
   const { login, token, profile, bootstrapping, loginError } = useAuth()
@@ -20,10 +21,21 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
+  const [demoConfig, setDemoConfig] = useState<DemoConfig | null>(null)
 
   function handleToggle() {
     setShowPassword((prev) => !prev)
   }
+
+  useEffect(() => {
+    let cancelled = false
+    void loadDemoConfig().then((config) => {
+      if (!cancelled) setDemoConfig(config)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   if (token && bootstrapping) {
     return (
@@ -37,17 +49,28 @@ export function LoginPage() {
     return <Navigate to={from} replace />
   }
 
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault()
+  async function signIn(nextEmail: string, nextPassword: string) {
     setLocalError(null)
     setSubmitting(true)
     try {
-      await login(email.trim(), password)
+      await login(nextEmail.trim(), nextPassword)
     } catch {
       setLocalError('Credenciales invalidas')
     } finally {
       setSubmitting(false)
     }
+  }
+
+  async function onSubmit(e: FormEvent) {
+    e.preventDefault()
+    await signIn(email, password)
+  }
+
+  async function onDemoAccount(account: DemoLoginAccount) {
+    if (!demoConfig?.enabled || submitting) return
+    setEmail(account.email)
+    setPassword(demoConfig.password)
+    await signIn(account.email, demoConfig.password)
   }
 
   return (
@@ -120,6 +143,28 @@ export function LoginPage() {
                 </div>
               )}
 
+              {demoConfig?.enabled ? (
+                <div className="mt-2 space-y-2">
+                  <p className="text-sm text-base-content/70">
+                    Sandbox para evaluadores: entra con un rol de demo. No necesitas cuenta de Google
+                    Classroom.
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {demoConfig.accounts.map((account) => (
+                      <button
+                        key={account.email}
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        disabled={submitting}
+                        onClick={() => void onDemoAccount(account)}
+                      >
+                        {account.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
               <form className="mt-2 flex flex-col gap-4" onSubmit={onSubmit}>
                 <label className="form-control w-full">
                   <div className="label pt-0">
@@ -141,7 +186,7 @@ export function LoginPage() {
                   <div className="label pt-0">
                     <span className="label-text flex items-center gap-1.5">
                       <HiLockClosed className="h-4 w-4 opacity-70" aria-hidden />
-                      Contrasena
+                      Contraseña
                     </span>
                   </div>
                   <div className="relative">
@@ -157,7 +202,7 @@ export function LoginPage() {
                       type="button"
                       className="btn btn-ghost btn-square btn-sm absolute end-1 top-1/2 min-h-8 w-8 -translate-y-1/2 border-0"
                       onClick={handleToggle}
-                      aria-label={showPassword ? 'Ocultar contrasena' : 'Mostrar contrasena'}
+                      aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                       aria-pressed={showPassword}
                     >
                       {showPassword ? (
@@ -190,9 +235,6 @@ export function LoginPage() {
               </form>
 
               <p className="mt-4 text-center text-sm text-base-content/70">
-                Si tu docente sincronizo tu clase de Google Classroom, entra con tu correo y la
-                contrasena inicial; luego cambiala desde el menu de usuario. Si te registraron con
-                matricula,{' '}
                 <Link to="/registro" className="link link-primary font-medium">
                   activa tu cuenta aqui
                 </Link>

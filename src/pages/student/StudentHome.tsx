@@ -3,6 +3,7 @@ import { HiGift, HiWallet } from 'react-icons/hi2'
 import { api, ApiError, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
 import { StudentAchievementsPanel } from '../../components/student/StudentAchievementsPanel'
+import { StudentDiplomaCard } from '../../components/student/StudentDiplomaCard'
 import { EmptyState, KpiStrip } from '../../components/ui/executive'
 import { CREDIT_TOKEN_NAME } from '../../i18n/es'
 import { formatAmount, formatCreditsWithUnit, formatId } from '../../i18n/format'
@@ -162,6 +163,8 @@ export function StudentHome() {
           . Consulta resultados en <span className="font-medium text-base-content/70">Mis envios</span>.
         </p>
       </div>
+
+      <StudentDiplomaCard />
 
       <StudentAchievementsPanel />
 

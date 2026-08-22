@@ -10,6 +10,7 @@ import { api, ApiError, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
 import { EmptyState, ExecutiveHero, KpiStrip, SectionCard } from '../../components/ui/executive'
 import { TablePagination } from '../../components/ui/TablePagination'
+import { loadDemoConfig } from '../../demo/demoConfig'
 import { TASK_STATUS_LABELS } from '../../i18n/es'
 import { formatCreditsWithUnit, formatId } from '../../i18n/format'
 import type { PaginatedMeta, PaginatedPayload } from '../../types'
@@ -129,6 +130,7 @@ export function TeacherHome() {
   const [syncingTaskId, setSyncingTaskId] = useState<number | null>(null)
   const [syncingAll, setSyncingAll] = useState(false)
   const [syncingStudents, setSyncingStudents] = useState(false)
+  const [classroomDemo, setClassroomDemo] = useState(false)
 
   const load = useCallback(async (options?: { silent?: boolean }) => {
     if (!token) return
@@ -155,6 +157,16 @@ export function TeacherHome() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     load()
   }, [load])
+
+  useEffect(() => {
+    let cancelled = false
+    void loadDemoConfig().then((config) => {
+      if (!cancelled) setClassroomDemo(config.enabled === true && config.classroomMock)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   async function enqueueClassroomSync(id: number): Promise<ClassroomSyncEnqueue> {
     if (!token) throw new Error('No autenticado')
@@ -327,8 +339,7 @@ export function TeacherHome() {
       const parts = [createdPart, activatedPart, linkedPart].filter(Boolean).join(', ')
       setActionMsgTone(summary.created + summary.activated > 0 ? 'success' : 'info')
       setActionMsg(
-        `Estudiantes sincronizados (${summary.courses} curso(s)): ${parts}.${
-          summary.skipped > 0 ? ` ${summary.skipped} omitido(s).` : ''
+        `Estudiantes sincronizados (${summary.courses} curso(s)): ${parts}.${summary.skipped > 0 ? ` ${summary.skipped} omitido(s).` : ''
         }`
       )
     } catch (err) {
@@ -366,9 +377,6 @@ export function TeacherHome() {
   }
 
   const totalTasks = summary?.total ?? 0
-  const closedTasks = summary?.closed ?? 0
-  const closeRatePct =
-    totalTasks > 0 ? Math.round((closedTasks / totalTasks) * 100) : 0
 
   return (
     <div className="space-y-6">
@@ -380,19 +388,14 @@ export function TeacherHome() {
       <KpiStrip
         items={[
           { label: 'Tareas propias', value: formatId(totalTasks), hint: 'Inventario actual' },
-          {
-            label: 'Tasa de cierre',
-            value: `${closeRatePct}%`,
-            hint: 'Tareas finalizadas',
-          },
           ...(creditPool?.hasPool
             ? [
-                {
-                  label: 'Presupuesto docente',
-                  value: formatCreditsWithUnit(creditPool.remainingCredits),
-                  hint: 'Disponible para recompensas autonomas',
-                },
-              ]
+              {
+                label: 'Presupuesto docente',
+                value: formatCreditsWithUnit(creditPool.remainingCredits),
+                hint: 'Disponible para recompensas autonomas',
+              },
+            ]
             : []),
         ]}
       />
@@ -404,7 +407,7 @@ export function TeacherHome() {
           {syncingStudents
             ? 'Sincronizando estudiantes desde Google Classroom…'
             : syncingAll
-              ? 'Sincronizacion en segundo plano: encolando y procesando tareas de Google Classroom…'
+              ? 'Sincronizacion en segundo plano: procesando tareas de Google Classroom…'
               : 'Sincronizacion en segundo plano: cargando calificaciones, revisando entregas y emitiendo recompensas…'}
         </div>
       ) : null}
@@ -480,7 +483,11 @@ export function TeacherHome() {
         {(tasksMeta?.total ?? 0) === 0 ? (
           <EmptyState
             title="Aun no tienes tareas importadas."
-            detail="Conecta Google Classroom e importa tareas para iniciar el ciclo de recompensas."
+            detail={
+              classroomDemo
+                ? 'Importa las tareas de demo en Integraciones (Matematicas 3A, las 5 actividades).'
+                : 'Conecta Google Classroom e importa tareas para iniciar el ciclo de recompensas.'
+            }
           />
         ) : (
           <div className="space-y-3">

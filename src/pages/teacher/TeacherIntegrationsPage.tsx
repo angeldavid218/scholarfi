@@ -13,6 +13,7 @@ import { CREDIT_TOKEN_NAME } from '../../i18n/es'
 type IntegrationStatus = {
   connected: boolean
   provider: string
+  mockMode?: boolean
   externalEmail: string | null
   connectedAt: string | null
   lastSyncAt: string | null
@@ -39,6 +40,7 @@ export function TeacherIntegrationsPage() {
   const [actionMsg, setActionMsg] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [importMsg, setImportMsg] = useState<string | null>(null)
+  const [connecting, setConnecting] = useState(false)
 
   const oauthConnected = searchParams.get('connected')
   const oauthError = searchParams.get('error')
@@ -87,17 +89,30 @@ export function TeacherIntegrationsPage() {
   async function connectClassroom() {
     if (!token) return
     setActionMsg(null)
+    setConnecting(true)
     try {
-      const data = await api.post<{ authUrl: string }>('/integrations/google-classroom/connect', {
-        token,
-      })
+      const data = await api.post<{ authUrl: string | null; connected?: boolean; mockMode?: boolean }>(
+        '/integrations/google-classroom/connect',
+        {
+          token,
+        }
+      )
       if (data.authUrl) {
         window.location.href = data.authUrl
+        return
       }
+      await loadStatus()
+      setActionMsg(
+        data.mockMode || data.connected
+          ? 'Classroom de demo conectado. Importa Matematicas 3A (5 tareas) para sincronizar.'
+          : 'Google Classroom conectado correctamente.'
+      )
     } catch (e) {
       setActionMsg(
         e instanceof ApiError ? getApiErrorMessage(e.body) : 'No se pudo iniciar la conexion'
       )
+    } finally {
+      setConnecting(false)
     }
   }
 
@@ -249,8 +264,12 @@ export function TeacherIntegrationsPage() {
     <div className="space-y-6">
       <ExecutiveHero
         eyebrow="Integraciones"
-        title="Google Classroom"
-        subtitle="Conecta tu cuenta, importa tareas con recompensa y sincroniza calificaciones cuando los estudiantes completen en ScholarFi."
+        title={status?.mockMode ? 'Classroom (demo)' : 'Google Classroom'}
+        subtitle={
+          status?.mockMode
+            ? 'Usa el Classroom de fixtures: importa Matematicas 3A (5 tareas) y sincroniza calificaciones de demo. No se necesita cuenta de Google.'
+            : 'Conecta tu cuenta, importa tareas con recompensa y sincroniza calificaciones cuando los estudiantes completen en ScholarFi.'
+        }
       />
 
       {error && <div className="alert alert-error">{error}</div>}
@@ -267,9 +286,20 @@ export function TeacherIntegrationsPage() {
         </div>
       )}
 
+      {status?.mockMode ? (
+        <div role="status" className="alert alert-info text-sm">
+          Las tareas y calificaciones salen de fixtures (Matematicas 3A tiene 5 items; Sofia y
+          Valentina tienen nota 8). No hay conexion a Google.
+        </div>
+      ) : null}
+
       <SectionCard
         title="Conexion"
-        subtitle="Autoriza ScholarFi para leer cursos, tareas y calificaciones (solo lectura)."
+        subtitle={
+          status?.mockMode
+            ? 'Activa el Classroom de demo para listar cursos y tareas de fixtures.'
+            : 'Autoriza ScholarFi para leer cursos, tareas y calificaciones (solo lectura).'
+        }
         titleIcon={<HiLink aria-hidden />}
       >
         {status?.connected ? (
@@ -290,12 +320,22 @@ export function TeacherIntegrationsPage() {
         ) : (
           <div className="space-y-3">
             <p className="text-sm text-base-content/70">
-              Necesitas una cuenta de Google Workspace de tu institucion. Los estudiantes deben usar el mismo correo en
-              ScholarFi que en Classroom.
+              {status?.mockMode
+                ? 'Un clic conecta el Classroom de demo. Luego importa Matematicas 3A (todas las tareas) con recompensa y nota minima.'
+                : 'Necesitas una cuenta de Google Workspace de tu institucion. Los estudiantes deben usar el mismo correo en ScholarFi que en Classroom.'}
             </p>
-            <button type="button" className="btn btn-primary gap-1" onClick={() => void connectClassroom()}>
-              <HiLink className="h-4 w-4" aria-hidden />
-              Conectar Google Classroom
+            <button
+              type="button"
+              className="btn btn-primary gap-1"
+              disabled={connecting}
+              onClick={() => void connectClassroom()}
+            >
+              {connecting ? (
+                <span className="loading loading-sm loading-spinner" aria-hidden />
+              ) : (
+                <HiLink className="h-4 w-4" aria-hidden />
+              )}
+              {status?.mockMode ? 'Usar Classroom de demo' : 'Conectar Google Classroom'}
             </button>
           </div>
         )}

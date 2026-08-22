@@ -90,6 +90,12 @@ const API_ERROR_CODE_MESSAGES: Record<string, string> = {
   CURRENT_PASSWORD_INVALID: 'La contrasena actual es incorrecta.',
   GOOGLE_CLASSROOM_NOT_CONNECTED: 'Conecta Google Classroom antes de continuar.',
   CLASSROOM_STUDENT_SYNC_FAILED: 'No se pudo sincronizar estudiantes de Classroom.',
+  CNFT_NOT_ENABLED:
+    'Los diplomas NFT requieren Solana y wallets cripto habilitadas en la institucion.',
+  CNFT_TREE_NOT_CONFIGURED: 'El arbol de cNFT no esta configurado. Ejecuta node ace cnft:setup-tree.',
+  CNFT_NO_OUTSTANDING_STUDENT: 'Aun no hay un estudiante destacado en el ranking.',
+  CNFT_WALLET_MISSING: 'El estudiante destacado no tiene wallet custodial.',
+  CNFT_MINT_FAILED: 'No se pudo mintear el diploma NFT.',
 }
 
 export function getApiErrorEsMessage(code?: string | null): string | null {

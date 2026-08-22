@@ -10,3 +10,12 @@ export function solscanTxUrl(signature: string): string {
   }
   return base
 }
+
+export function solscanAddressUrl(address: string): string {
+  const cluster = (import.meta.env.VITE_SOLANA_CLUSTER as string | undefined)?.trim()
+  const base = `https://solscan.io/token/${encodeURIComponent(address)}`
+  if (cluster && cluster !== 'mainnet-beta' && cluster !== 'mainnet') {
+    return `${base}?cluster=${encodeURIComponent(cluster)}`
+  }
+  return base
+}
