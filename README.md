@@ -76,4 +76,4 @@ From `.env.example` (for future/on-chain demos):
 
 ## Backend pairing
 
-Seed demo users with `node ace demo:reset` in **scholarfi-back**. With `GOOGLE_CLASSROOM_MOCK=true`, `/login` shows demo role chips (no Google Classroom account needed). External evaluators: [docs/judge-instructions.md](docs/judge-instructions.md) (English and Spanish).
+Seed demo users with `node ace demo:reset` in **scholarfi-back**. Sign in at `/login` with the demo emails and password from the backend README (no Google Classroom account needed). External evaluators: [docs/judge-instructions.md](docs/judge-instructions.md) (English and Spanish).
