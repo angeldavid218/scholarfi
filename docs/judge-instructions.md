@@ -42,12 +42,12 @@ To switch roles, log out from the header user menu and pick another chip.
 3. Click **Usar Classroom de demo** (this does **not** redirect to Google).
 4. Select course **Matematicas 3A**.
 5. Keep reward at `10` and minimum grade at `6`.
-6. Click **Importar todas (5)**.
+6. Click **Importar todas**.
 7. Go to **Docente** (`/teacher`).
 8. Optional: **Sincronizar estudiantes**.
 9. Click **Sincronizar todo**.
 
-Fixture assignments: Ecuaciones lineales, Repaso unidad 2, Problemas de fracciones, Geometria basica, Quiz diagnostico.
+Fixture assignments: Ecuaciones lineales, Repaso unidad 2.
 
 Expected after sync (minimum grade 6):
 
@@ -55,11 +55,8 @@ Expected after sync (minimum grade 6):
 |---------|------------|--------|
 | Sofia Hernandez | 8 | Rewarded |
 | Valentina Rojas | 8 | Rewarded |
-| Mateo Vargas | 5 | Skipped (below minimum) |
-| Lucas Mendez | 5 | Skipped (below minimum) |
-| Camila Torres | none | Skipped (ungraded) |
 
-Sofia and Valentina complete all 5 activities, so they become eligible for the SAS milestone.
+Sofia and Valentina complete both activities, so they become eligible for the SAS milestone.
 
 ### 3. Student
 
@@ -80,9 +77,9 @@ Sofia and Valentina complete all 5 activities, so they become eligible for the S
 1. Log out and sign in as **Super admin**.
 2. Open `/super` to list the demo institution (`SFA-DEMO`) and the crypto-wallets toggle.
 
-### Other demo students
+### Other demo student
 
-Same password `DemoPass123!`: `mateo.vargas@scholarfi.test`, `valentina.rojas@school.edu`, `lucas.mendez@school.edu`, `camila.torres@school.edu`.
+Same password `DemoPass123!`: `valentina.rojas@school.edu`.
 
 ---
 
@@ -121,12 +118,12 @@ Para cambiar de rol, cierra sesión en el menú del encabezado y elige otro bot�
 3. Pulsa **Usar Classroom de demo** (no redirige a Google).
 4. Elige el curso **Matematicas 3A**.
 5. Deja la recompensa en `10` y la nota mínima en `6`.
-6. Pulsa **Importar todas (5)**.
+6. Pulsa **Importar todas**.
 7. Ve a **Docente** (`/teacher`).
 8. Opcional: **Sincronizar estudiantes**.
 9. Pulsa **Sincronizar todo**.
 
-Tareas de demo: Ecuaciones lineales, Repaso unidad 2, Problemas de fracciones, Geometria basica, Quiz diagnostico.
+Tareas de demo: Ecuaciones lineales, Repaso unidad 2.
 
 Resultado esperado (nota mínima 6):
 
@@ -134,11 +131,8 @@ Resultado esperado (nota mínima 6):
 |------------|--------------|-----------|
 | Sofia Hernandez | 8 | Recompensada |
 | Valentina Rojas | 8 | Recompensada |
-| Mateo Vargas | 5 | Omitido (bajo el mínimo) |
-| Lucas Mendez | 5 | Omitido (bajo el mínimo) |
-| Camila Torres | sin nota | Omitido (sin calificar) |
 
-Sofia y Valentina completan las 5 actividades, así que quedan elegibles para el hito SAS.
+Sofia y Valentina completan las 2 actividades, así que quedan elegibles para el hito SAS.
 
 ### 3. Estudiante
 
@@ -159,6 +153,6 @@ Sofia y Valentina completan las 5 actividades, así que quedan elegibles para el
 1. Cierra sesión y entra como **Super admin**.
 2. Abre `/super` para ver la institución de demo (`SFA-DEMO`) y el interruptor de wallets cripto.
 
-### Otros estudiantes de demo
+### Otra estudiante de demo
 
-Misma contraseña `DemoPass123!`: `mateo.vargas@scholarfi.test`, `valentina.rojas@school.edu`, `lucas.mendez@school.edu`, `camila.torres@school.edu`.
+Misma contraseña `DemoPass123!`: `valentina.rojas@school.edu`.

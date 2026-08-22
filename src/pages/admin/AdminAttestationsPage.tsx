@@ -188,8 +188,8 @@ export function AdminAttestationsPage() {
     <div className="space-y-6">
       <ExecutiveHero
         eyebrow="Solana Attestation Service"
-        title="Attestaciones SAS — Logro 5 primeras actividades"
-        subtitle="Emite attestaciones on-chain para estudiantes con 5 o más actividades recompensadas. Equivalente a node ace sas:attest-milestones desde el panel."
+        title="Attestaciones SAS — Logro 2 primeras actividades"
+        subtitle="Certifica a los estudiantes que ya ganaron créditos en 2 o más actividades. El certificado queda registrado en Solana y se puede verificar en línea."
         leadingIcon={<HiCheckBadge />}
       />
 
@@ -230,7 +230,7 @@ export function AdminAttestationsPage() {
 
       <SectionCard
         title="Estudiantes elegibles"
-        subtitle={`Milestone: ${preview?.milestoneTitle ?? '—'} (umbral: ${preview?.threshold ?? 5} actividades).`}
+        subtitle={`Milestone: ${preview?.milestoneTitle ?? '—'} (umbral: ${preview?.threshold ?? 2} actividades).`}
         titleIcon={<HiCheckBadge aria-hidden />}
         actions={
           <button type="button" className="btn btn-outline btn-sm gap-1" onClick={() => load()}>
@@ -242,7 +242,7 @@ export function AdminAttestationsPage() {
         {!preview?.candidates?.length ? (
           <EmptyState
             title="Sin candidatos elegibles."
-            detail="Cuando un estudiante acumule 5 actividades recompensadas confirmadas, aparecerá aquí."
+            detail="Cuando un estudiante acumule 2 actividades recompensadas confirmadas, aparecerá aquí."
           />
         ) : (
           <div className="space-y-4">
