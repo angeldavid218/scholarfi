@@ -3,7 +3,9 @@ import { HiAcademicCap, HiArrowTopRightOnSquare } from 'react-icons/hi2'
 import { api, ApiError, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
 import { DiplomaCertificatePreview } from '../../components/diploma/DiplomaCertificatePreview'
+import { AlertBanner } from '../../components/ui/AlertBanner'
 import { EmptyState, ExecutiveHero, SectionCard } from '../../components/ui/executive'
+import { PageSpinner } from '../../components/ui/PageSpinner'
 import { achievementLabel, DIPLOMA_CATEGORY_HINTS } from '../../constants/diplomaAchievements'
 import { formatCreditsWithUnit, formatId } from '../../i18n/format'
 import { solscanAddressUrl, solscanTxUrl } from '../../utils/solanaExplorer'
@@ -115,13 +117,7 @@ export function AdminDiplomaPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <span className="loading loading-md loading-spinner text-primary" aria-label="Cargando" />
-      </div>
-    )
-  }
+  if (loading) return <PageSpinner />
 
   const best = preview?.currentBest ?? null
   const diploma = preview?.existingDiploma ?? null
@@ -142,16 +138,8 @@ export function AdminDiplomaPage() {
         leadingIcon={<HiAcademicCap />}
       />
 
-      {error ? (
-        <div role="alert" className="alert alert-error">
-          {error}
-        </div>
-      ) : null}
-      {msg ? (
-        <div role="status" className="alert alert-success">
-          {msg}
-        </div>
-      ) : null}
+      {error ? <AlertBanner tone="error">{error}</AlertBanner> : null}
+      {msg ? <AlertBanner tone="success">{msg}</AlertBanner> : null}
 
       {!preview?.onChainEnabled ? (
         <div role="status" className="alert alert-info text-sm">

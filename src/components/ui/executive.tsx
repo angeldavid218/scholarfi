@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { HiInbox } from 'react-icons/hi2'
 
-type HeroProps = {
+interface ExecutiveHeroProps {
   eyebrow?: string
   title: string
   subtitle: string
@@ -10,17 +10,17 @@ type HeroProps = {
   leadingIcon?: ReactNode
 }
 
-type KpiItem = {
+interface KpiItem {
   label: string
   value: string | number
   hint?: string
 }
 
-type KpiStripProps = {
+interface KpiStripProps {
   items: KpiItem[]
 }
 
-type SectionCardProps = {
+interface SectionCardProps {
   title: string
   subtitle?: string
   actions?: ReactNode
@@ -28,7 +28,18 @@ type SectionCardProps = {
   children: ReactNode
 }
 
-export function ExecutiveHero({ eyebrow, title, subtitle, actions, leadingIcon }: HeroProps) {
+interface EmptyStateProps {
+  title: string
+  detail?: string
+}
+
+export const ExecutiveHero = ({
+  eyebrow,
+  title,
+  subtitle,
+  actions,
+  leadingIcon,
+}: ExecutiveHeroProps) => {
   return (
     <section className="sf-hero">
       <div>
@@ -46,7 +57,7 @@ export function ExecutiveHero({ eyebrow, title, subtitle, actions, leadingIcon }
   )
 }
 
-export function KpiStrip({ items }: KpiStripProps) {
+export const KpiStrip = ({ items }: KpiStripProps) => {
   return (
     <section className="sf-kpi-strip" aria-label="Indicadores clave">
       {items.map((item) => (
@@ -60,7 +71,7 @@ export function KpiStrip({ items }: KpiStripProps) {
   )
 }
 
-export function SectionCard({ title, subtitle, actions, titleIcon, children }: SectionCardProps) {
+export const SectionCard = ({ title, subtitle, actions, titleIcon, children }: SectionCardProps) => {
   return (
     <section className="card border border-base-300 bg-base-100 shadow-sm">
       <div className="card-body">
@@ -82,7 +93,7 @@ export function SectionCard({ title, subtitle, actions, titleIcon, children }: S
   )
 }
 
-export function EmptyState({ title, detail }: { title: string; detail?: string }) {
+export const EmptyState = ({ title, detail }: EmptyStateProps) => {
   return (
     <div className="rounded-box border border-dashed border-base-300 bg-base-200/60 p-4 text-sm">
       <div className="flex gap-3">

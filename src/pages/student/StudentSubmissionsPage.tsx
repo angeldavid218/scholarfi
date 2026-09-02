@@ -1,13 +1,17 @@
-import { useCallback, useEffect, useState } from 'react'
 import { HiArrowTopRightOnSquare, HiQueueList } from 'react-icons/hi2'
 import { Link } from 'react-router-dom'
-import { api, ApiError, getApiErrorMessage } from '../../api/client'
-import { useAuth } from '../../auth/AuthContext'
+import { api } from '../../api/client'
+import { AlertBanner } from '../../components/ui/AlertBanner'
 import { EmptyState, ExecutiveHero, KpiStrip, SectionCard } from '../../components/ui/executive'
+import { PageSpinner } from '../../components/ui/PageSpinner'
+import { StatusBadge } from '../../components/ui/StatusBadge'
+import { submissionStatusTone } from '../../components/ui/statusTones'
+import { TableShell } from '../../components/ui/TableShell'
+import { useTokenResource } from '../../hooks/useTokenResource'
 import { formatId } from '../../i18n/format'
 import { formatRelativeDate } from '../../utils/dates'
 
-type SubmissionRow = {
+interface SubmissionRow {
   id: number
   taskId: number
   status: string
@@ -15,45 +19,17 @@ type SubmissionRow = {
   submittedAt: string
 }
 
-function statusBadgeClass(status: string): string {
-  if (status === 'approved') return 'badge badge-success badge-sm'
-  if (status === 'rejected_by_teacher' || status === 'rejected_by_admin') return 'badge badge-error badge-sm'
-  if (status === 'validated') return 'badge badge-info badge-sm'
-  return 'badge badge-warning badge-sm'
-}
-
-export function StudentSubmissionsPage() {
-  const { token } = useAuth()
-  const [submissions, setSubmissions] = useState<SubmissionRow[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const load = useCallback(async () => {
-    if (!token) return
-    setError(null)
-    setLoading(true)
-    try {
+export const StudentSubmissionsPage = () => {
+  const { data, loading, error } = useTokenResource<SubmissionRow[]>({
+    load: async (token) => {
       const s = await api.get<SubmissionRow[]>('/submissions', { token })
-      setSubmissions(Array.isArray(s) ? s : [])
-    } catch (e) {
-      setError(e instanceof ApiError ? getApiErrorMessage(e.body) : 'Error al cargar')
-    } finally {
-      setLoading(false)
-    }
-  }, [token])
+      return Array.isArray(s) ? s : []
+    },
+  })
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    load()
-  }, [load])
+  const submissions = data ?? []
 
-  if (loading) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <span className="loading loading-md loading-spinner text-primary" aria-label="Cargando" />
-      </div>
-    )
-  }
+  if (loading) return <PageSpinner />
 
   return (
     <div className="space-y-6">
@@ -72,13 +48,7 @@ export function StudentSubmissionsPage() {
           },
         ]}
       />
-
-      {error && (
-        <div role="alert" className="alert alert-error">
-          {error}
-        </div>
-      )}
-
+      {error ? <AlertBanner tone="error">{error}</AlertBanner> : null}
       <SectionCard
         title="Mis envios"
         subtitle="Vista consolidada para seguimiento de validaciones y decisiones."
@@ -90,42 +60,44 @@ export function StudentSubmissionsPage() {
             detail="En Tareas disponibles puedes crear tu primer registro."
           />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="table table-zebra table-sm">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Tarea</th>
-                  <th>Estado</th>
-                  <th>Enviado</th>
-                  <th />
+          <TableShell compact>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Tarea</th>
+                <th>Estado</th>
+                <th>Enviado</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {submissions.map((submission) => (
+                <tr key={submission.id}>
+                  <th>{formatId(submission.id)}</th>
+                  <td>{formatId(submission.taskId)}</td>
+                  <td>
+                    <StatusBadge tone={submissionStatusTone(submission.status)}>
+                      {submission.statusLabelEs}
+                    </StatusBadge>
+                  </td>
+                  <td className="whitespace-nowrap text-xs text-base-content/70">
+                    <span title={submission.submittedAt}>
+                      {formatRelativeDate(new Date(submission.submittedAt))}
+                    </span>
+                  </td>
+                  <td>
+                    <Link
+                      className="btn btn-outline btn-sm gap-1"
+                      to={`/student/submissions/${submission.id}`}
+                    >
+                      <HiArrowTopRightOnSquare className="h-4 w-4" aria-hidden />
+                      Ver detalle
+                    </Link>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {submissions.map((submission) => (
-                  <tr key={submission.id}>
-                    <th>{formatId(submission.id)}</th>
-                    <td>{formatId(submission.taskId)}</td>
-                    <td>
-                      <span className={statusBadgeClass(submission.status)}>{submission.statusLabelEs}</span>
-                    </td>
-                    <td className="whitespace-nowrap text-xs text-base-content/70">
-                      <span title={submission.submittedAt}>{formatRelativeDate(new Date(submission.submittedAt))}</span>
-                    </td>
-                    <td>
-                      <Link
-                        className="btn btn-outline btn-sm gap-1"
-                        to={`/student/submissions/${submission.id}`}
-                      >
-                        <HiArrowTopRightOnSquare className="h-4 w-4" aria-hidden />
-                        Ver detalle
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </TableShell>
         )}
       </SectionCard>
     </div>

@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { HiArrowPath, HiArrowTopRightOnSquare, HiBanknotes } from 'react-icons/hi2'
 import { api, ApiError, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
+import { AlertBanner } from '../../components/ui/AlertBanner'
 import { EmptyState, ExecutiveHero, SectionCard } from '../../components/ui/executive'
+import { PageSpinner } from '../../components/ui/PageSpinner'
 import { TablePagination } from '../../components/ui/TablePagination'
 import { formatCreditsWithUnit, formatId } from '../../i18n/format'
 import { formatRelativeDate } from '../../utils/dates'
@@ -67,13 +69,7 @@ export function AdminBitacoraAprobacionPage() {
     load()
   }, [load])
 
-  if (loading) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <span className="loading loading-md loading-spinner text-primary" aria-label="Cargando" />
-      </div>
-    )
-  }
+  if (loading) return <PageSpinner />
 
   return (
     <div className="space-y-6">
@@ -83,7 +79,7 @@ export function AdminBitacoraAprobacionPage() {
         subtitle="Registro institucional de Credit acreditado cuando un envío alcanza la aprobación final."
       />
 
-      {error && <div className="alert alert-error">{error}</div>}
+      {error ? <AlertBanner tone="error">{error}</AlertBanner> : null}
 
       <SectionCard
         title="Historial de créditos"

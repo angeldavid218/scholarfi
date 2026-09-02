@@ -1,0 +1,15 @@
+---
+description: Client and server state management patterns (local state, context, cache)
+globs: "**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# State management
+
+- Keep state as close as possible to where it is used
+- Lift state only when siblings must share it
+- Use context sparingly; prefer composition
+- Separate UI state from server/cache state
+- Prefer React Query / TanStack Query for server state when fetching
+- Use simple `useState` first; `useReducer` or a state machine for complex UI flows
+- Pair mutations with loading and error states; use optimistic updates when UX benefits

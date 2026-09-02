@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { HiArrowPath, HiArrowTopRightOnSquare, HiCheckBadge } from 'react-icons/hi2'
 import { api, ApiError, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
+import { AlertBanner } from '../../components/ui/AlertBanner'
 import { EmptyState, ExecutiveHero, KpiStrip, SectionCard } from '../../components/ui/executive'
+import { PageSpinner } from '../../components/ui/PageSpinner'
 import { formatId } from '../../i18n/format'
 import { solscanTxUrl } from '../../utils/solanaExplorer'
 
@@ -169,13 +171,7 @@ export function AdminAttestationsPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <span className="loading loading-md loading-spinner text-primary" aria-label="Cargando" />
-      </div>
-    )
-  }
+  if (loading) return <PageSpinner />
 
   const summary = preview?.summary
   const canRun =
@@ -193,16 +189,8 @@ export function AdminAttestationsPage() {
         leadingIcon={<HiCheckBadge />}
       />
 
-      {error ? (
-        <div role="alert" className="alert alert-error">
-          {error}
-        </div>
-      ) : null}
-      {msg ? (
-        <div role="status" className="alert alert-success">
-          {msg}
-        </div>
-      ) : null}
+      {error ? <AlertBanner tone="error">{error}</AlertBanner> : null}
+      {msg ? <AlertBanner tone="success">{msg}</AlertBanner> : null}
 
       {!preview?.sasEnabled ? (
         <div role="status" className="alert alert-info text-sm">

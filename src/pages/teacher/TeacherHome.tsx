@@ -1,45 +1,23 @@
-import { useCallback, useEffect, useState } from 'react'
-import {
-  HiArrowPath,
-  HiClipboardDocumentList,
-  HiLockClosed,
-  HiUserGroup,
-} from 'react-icons/hi2'
-import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import { api, ApiError, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
-import { EmptyState, ExecutiveHero, KpiStrip, SectionCard } from '../../components/ui/executive'
-import { TablePagination } from '../../components/ui/TablePagination'
+import { TeacherTasksTable, type TeacherTaskRow } from '../../components/teacher/TeacherTasksTable'
+import { AlertBanner } from '../../components/ui/AlertBanner'
+import { ExecutiveHero, KpiStrip } from '../../components/ui/executive'
+import { PageSpinner } from '../../components/ui/PageSpinner'
 import { loadDemoConfig } from '../../demo/demoConfig'
-import { TASK_STATUS_LABELS } from '../../i18n/es'
+import { useClassroomSync } from '../../hooks/useClassroomSync'
+import { usePagination } from '../../hooks/usePagination'
+import { useTokenResource } from '../../hooks/useTokenResource'
 import { formatCreditsWithUnit, formatId } from '../../i18n/format'
 import type { PaginatedMeta, PaginatedPayload } from '../../types'
 
-type TaskRow = {
-  id: number
-  title: string
-  description: string
-  rewardAmount: number
-  dueAt: string | null
-  status: string
-  externalSource?: string
-  syncMetadata?: {
-    minGrade?: number
-    maxPoints?: number | null
-    lastSyncAt?: string | null
-    lastSyncSummary?: {
-      rewarded: number
-      budgetRemaining: number
-    } | null
-  } | null
-}
-
-type TeacherTaskSummary = {
+interface TeacherTaskSummary {
   total: number
   closed: number
 }
 
-type TeacherCreditPool = {
+interface TeacherCreditPool {
   teacherId: number
   allocatedCredits: number
   utilizedCredits: number
@@ -47,116 +25,42 @@ type TeacherCreditPool = {
   hasPool: boolean
 }
 
-type ClassroomSyncResult = {
-  rewarded: number
-  skippedLowGrade: number
-  skippedNoGrade: number
-  skippedAlreadyRewarded: number
-  skippedBudgetExhausted: number
-  budgetRemaining: number
+interface TeacherHomeData {
+  summary: TeacherTaskSummary
+  tasks: TeacherTaskRow[]
+  tasksMeta: PaginatedMeta | null
+  creditPool: TeacherCreditPool | null
 }
 
-type ClassroomSyncEnqueue = {
-  runId: number
-  taskId: number
-  status: string
-  deduped?: boolean
-}
-
-type ClassroomSyncAllEnqueue = {
-  tasks: number
-  runs: ClassroomSyncEnqueue[]
-}
-
-type ClassroomSyncRun = {
-  runId: number
-  taskId: number
-  status: 'queued' | 'running' | 'completed' | 'failed' | string
-  result: ClassroomSyncResult | null
-  errorMessage: string | null
-}
-
-type ClassroomStudentSyncSummary = {
-  courses: number
-  created: number
-  activated: number
-  linked: number
-  skipped: number
-  errors: Array<{ email: string | null; message: string }>
-}
-
-const SYNC_POLL_MS = 1000
-const SYNC_POLL_TIMEOUT_MS = 180_000
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-function statusBadgeClass(status: string): string {
-  if (status === 'active') return 'badge badge-success badge-sm'
-  if (status === 'closed') return 'badge badge-neutral badge-sm'
-  return 'badge badge-ghost badge-sm'
-}
-
-function formatTaskDueLine(dueAt: string | null): string | null {
-  if (!dueAt) return null
-  const due = new Date(dueAt)
-  if (Number.isNaN(due.getTime())) return null
-  const formatted = new Intl.DateTimeFormat('es-MX', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(due)
-  return `Vence: ${formatted}`
-}
-
-function isSyncableClassroomTask(task: TaskRow): boolean {
-  return task.externalSource === 'google_classroom' && task.status === 'active'
-}
-
-export function TeacherHome() {
+export const TeacherHome = () => {
   const { token } = useAuth()
-  const [tasks, setTasks] = useState<TaskRow[]>([])
-  const [tasksMeta, setTasksMeta] = useState<PaginatedMeta | null>(null)
-  const [summary, setSummary] = useState<TeacherTaskSummary | null>(null)
-  const [creditPool, setCreditPool] = useState<TeacherCreditPool | null>(null)
-  const [tasksPage, setTasksPage] = useState(1)
-  const [tasksPerPage, setTasksPerPage] = useState(10)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const [actionMsg, setActionMsg] = useState<string | null>(null)
-  const [actionMsgTone, setActionMsgTone] = useState<'info' | 'success' | 'error'>('info')
-  const [syncingTaskId, setSyncingTaskId] = useState<number | null>(null)
-  const [syncingAll, setSyncingAll] = useState(false)
-  const [syncingStudents, setSyncingStudents] = useState(false)
+  const { page, perPage, onPageChange, onPerPageChange } = usePagination()
   const [classroomDemo, setClassroomDemo] = useState(false)
 
-  const load = useCallback(async (options?: { silent?: boolean }) => {
-    if (!token) return
-    setError(null)
-    if (!options?.silent) setLoading(true)
-    try {
+  const { data, loading, error, reload } = useTokenResource<TeacherHomeData>({
+    load: async (authToken) => {
       const [s, t, pool] = await Promise.all([
-        api.get<TeacherTaskSummary>('/tasks/summary', { token }),
-        api.get<PaginatedPayload<TaskRow>>(`/tasks?page=${tasksPage}&perPage=${tasksPerPage}`, { token }),
-        api.get<TeacherCreditPool>('/teachers/credit-pool', { token }).catch(() => null),
+        api.get<TeacherTaskSummary>('/tasks/summary', { token: authToken }),
+        api.get<PaginatedPayload<TeacherTaskRow>>(`/tasks?page=${page}&perPage=${perPage}`, {
+          token: authToken,
+        }),
+        api.get<TeacherCreditPool>('/teachers/credit-pool', { token: authToken }).catch(() => null),
       ])
-      setSummary(s)
-      setTasks(Array.isArray(t?.items) ? t.items : [])
-      setTasksMeta(t?.meta ?? null)
-      setCreditPool(pool)
-    } catch (e) {
-      setError(e instanceof ApiError ? getApiErrorMessage(e.body) : 'Error al cargar')
-    } finally {
-      if (!options?.silent) setLoading(false)
-    }
-  }, [token, tasksPage, tasksPerPage])
+      return {
+        summary: s,
+        tasks: Array.isArray(t?.items) ? t.items : [],
+        tasksMeta: t?.meta ?? null,
+        creditPool: pool,
+      }
+    },
+    deps: [page, perPage],
+  })
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    load()
-  }, [load])
+  const reloadSilent = async (options?: { silent?: boolean }) => {
+    await reload(!options?.silent)
+  }
+
+  const sync = useClassroomSync({ onSynced: reloadSilent })
 
   useEffect(() => {
     let cancelled = false
@@ -168,215 +72,24 @@ export function TeacherHome() {
     }
   }, [])
 
-  async function enqueueClassroomSync(id: number): Promise<ClassroomSyncEnqueue> {
-    if (!token) throw new Error('No autenticado')
-    return api.post<ClassroomSyncEnqueue>(`/tasks/${id}/sync-classroom`, { json: {}, token })
-  }
-
-  async function pollClassroomSyncRun(runId: number): Promise<ClassroomSyncRun> {
-    if (!token) throw new Error('No autenticado')
-    const started = Date.now()
-    while (Date.now() - started < SYNC_POLL_TIMEOUT_MS) {
-      const run = await api.get<ClassroomSyncRun>(`/classroom-sync-runs/${runId}`, { token })
-      if (run.status === 'completed' || run.status === 'failed') {
-        return run
-      }
-      await sleep(SYNC_POLL_MS)
-    }
-    throw new Error('La sincronizacion tardo demasiado. Revisa el worker (`npm run queue:work`).')
-  }
-
-  async function postClassroomSync(id: number): Promise<ClassroomSyncResult> {
-    const enqueued = await enqueueClassroomSync(id)
-    const run = await pollClassroomSyncRun(enqueued.runId)
-    if (run.status === 'failed') {
-      throw new Error(run.errorMessage || 'No se pudo sincronizar con Classroom')
-    }
-    if (!run.result) {
-      throw new Error('Sincronizacion completada sin resultado')
-    }
-    return run.result
-  }
-
-  function summarizeSyncResult(result: ClassroomSyncResult): string {
-    const skippedTotal =
-      result.skippedLowGrade +
-      result.skippedNoGrade +
-      result.skippedAlreadyRewarded +
-      result.skippedBudgetExhausted
-    return `${result.rewarded} recompensa(s) emitida(s), ${skippedTotal} omitida(s). Presupuesto restante: ${result.budgetRemaining}.`
-  }
-
-  async function syncClassroomTask(id: number) {
-    if (!token || syncingTaskId != null || syncingAll || syncingStudents) return
-    setSyncingTaskId(id)
-    setActionMsg(null)
-    setActionMsgTone('info')
-    try {
-      const result = await postClassroomSync(id)
-      setActionMsgTone(result.rewarded > 0 ? 'success' : 'info')
-      setActionMsg(`Sincronizacion completada: ${summarizeSyncResult(result)}`)
-      await load({ silent: true })
-    } catch (err) {
-      setActionMsgTone('error')
-      setActionMsg(
-        err instanceof ApiError
-          ? getApiErrorMessage(err.body)
-          : err instanceof Error
-            ? err.message
-            : 'No se pudo sincronizar con Classroom'
-      )
-    } finally {
-      setSyncingTaskId(null)
-    }
-  }
-
-  async function syncAllClassroomTasks() {
-    if (!token || syncingTaskId != null || syncingAll || syncingStudents) return
-
-    setSyncingAll(true)
-    setActionMsg(null)
-    setActionMsgTone('info')
-
-    try {
-      const enqueued = await api.post<ClassroomSyncAllEnqueue>(
-        '/integrations/google-classroom/sync-all',
-        { json: {}, token }
-      )
-
-      if (enqueued.tasks === 0) {
-        setActionMsgTone('info')
-        setActionMsg('No hay tareas activas de Google Classroom para sincronizar.')
-        return
-      }
-
-      if (enqueued.runs.length === 0) {
-        setActionMsgTone('error')
-        setActionMsg('No se pudo sincronizar ninguna tarea con Classroom.')
-        return
-      }
-
-      const polls = await Promise.all(
-        enqueued.runs.map(async (job) => {
-          try {
-            return await pollClassroomSyncRun(job.runId)
-          } catch {
-            return { status: 'pending' as const }
-          }
-        })
-      )
-
-      let rewardedTotal = 0
-      let skippedTotal = 0
-      let lastBudgetRemaining: number | null = null
-      let failed = enqueued.tasks - enqueued.runs.length
-      let pending = 0
-
-      for (const run of polls) {
-        if (run.status === 'pending') {
-          pending += 1
-          continue
-        }
-        if (run.status !== 'completed' || !('result' in run) || !run.result) {
-          failed += 1
-          continue
-        }
-        rewardedTotal += run.result.rewarded
-        skippedTotal +=
-          run.result.skippedLowGrade +
-          run.result.skippedNoGrade +
-          run.result.skippedAlreadyRewarded +
-          run.result.skippedBudgetExhausted
-        lastBudgetRemaining = run.result.budgetRemaining
-      }
-
-      const total = enqueued.tasks
-      const ok = total - failed - pending
-      const budgetPart =
-        lastBudgetRemaining != null ? ` Presupuesto restante: ${lastBudgetRemaining}.` : ''
-      const pendingPart =
-        pending > 0
-          ? ` ${pending} sigue(n) en segundo plano; recarga mas tarde.`
-          : ''
-
-      if (failed === total) {
-        setActionMsgTone('error')
-        setActionMsg('No se pudo sincronizar ninguna tarea con Classroom.')
-      } else {
-        setActionMsgTone(rewardedTotal > 0 ? 'success' : failed > 0 ? 'error' : 'info')
-        setActionMsg(
-          `Sincronizacion masiva: ${ok}/${total} tarea(s) OK. ${rewardedTotal} recompensa(s), ${skippedTotal} omitida(s).${budgetPart}${pendingPart}`
-        )
-      }
-      await load({ silent: true })
-    } catch (err) {
-      setActionMsgTone('error')
-      setActionMsg(
-        err instanceof ApiError
-          ? getApiErrorMessage(err.body)
-          : err instanceof Error
-            ? err.message
-            : 'No se pudo sincronizar con Classroom'
-      )
-    } finally {
-      setSyncingAll(false)
-    }
-  }
-
-  async function syncClassroomStudents() {
-    if (!token || syncingStudents || syncingTaskId != null || syncingAll) return
-    setSyncingStudents(true)
-    setActionMsg(null)
-    setActionMsgTone('info')
-    try {
-      const summary = await api.post<ClassroomStudentSyncSummary>(
-        '/integrations/google-classroom/sync-students',
-        { json: {}, token }
-      )
-      const createdPart = summary.created > 0 ? `${summary.created} creado(s)` : null
-      const activatedPart = summary.activated > 0 ? `${summary.activated} activado(s)` : null
-      const linkedPart = `${summary.linked} vinculado(s)`
-      const parts = [createdPart, activatedPart, linkedPart].filter(Boolean).join(', ')
-      setActionMsgTone(summary.created + summary.activated > 0 ? 'success' : 'info')
-      setActionMsg(
-        `Estudiantes sincronizados (${summary.courses} curso(s)): ${parts}.${summary.skipped > 0 ? ` ${summary.skipped} omitido(s).` : ''
-        }`
-      )
-    } catch (err) {
-      setActionMsgTone('error')
-      setActionMsg(
-        err instanceof ApiError
-          ? getApiErrorMessage(err.body)
-          : 'No se pudo sincronizar estudiantes de Classroom'
-      )
-    } finally {
-      setSyncingStudents(false)
-    }
-  }
-
-  async function closeTask(id: number) {
+  const closeTask = async (id: number) => {
     if (!token) return
-    setActionMsg(null)
+    sync.setActionMsg(null)
     try {
       await api.patch(`/tasks/${id}/close`, { json: {}, token })
-      setActionMsg(`Tarea ${id} cerrada.`)
-      await load()
+      sync.setActionMsg(`Tarea ${id} cerrada.`)
+      await reload(true)
     } catch (err) {
-      setActionMsg(
+      sync.setActionMsg(
         err instanceof ApiError ? getApiErrorMessage(err.body) : 'No se pudo cerrar la tarea'
       )
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <span className="loading loading-md loading-spinner text-primary" aria-label="Cargando" />
-      </div>
-    )
-  }
+  if (loading) return <PageSpinner />
 
-  const totalTasks = summary?.total ?? 0
+  const totalTasks = data?.summary.total ?? 0
+  const creditPool = data?.creditPool ?? null
 
   return (
     <div className="space-y-6">
@@ -390,203 +103,48 @@ export function TeacherHome() {
           { label: 'Tareas propias', value: formatId(totalTasks), hint: 'Inventario actual' },
           ...(creditPool?.hasPool
             ? [
-              {
-                label: 'Presupuesto docente',
-                value: formatCreditsWithUnit(creditPool.remainingCredits),
-                hint: 'Disponible para recompensas autonomas',
-              },
-            ]
+                {
+                  label: 'Presupuesto docente',
+                  value: formatCreditsWithUnit(creditPool.remainingCredits),
+                  hint: 'Disponible para recompensas autonomas',
+                },
+              ]
             : []),
         ]}
       />
 
-      {error && <div className="alert alert-error">{error}</div>}
-      {syncingTaskId != null || syncingAll || syncingStudents ? (
-        <div role="status" aria-live="polite" className="alert alert-info text-sm">
+      {error ? <AlertBanner tone="error">{error}</AlertBanner> : null}
+      {sync.busy ? (
+        <AlertBanner tone="info">
           <span className="loading loading-spinner loading-sm" aria-hidden />
-          {syncingStudents
+          {sync.syncingStudents
             ? 'Sincronizando estudiantes desde Google Classroom…'
-            : syncingAll
+            : sync.syncingAll
               ? 'Sincronizacion en segundo plano: procesando tareas de Google Classroom…'
               : 'Sincronizacion en segundo plano: cargando calificaciones, revisando entregas y emitiendo recompensas…'}
-        </div>
+        </AlertBanner>
       ) : null}
-      {actionMsg && syncingTaskId == null && !syncingAll && !syncingStudents ? (
-        <div
-          role="status"
-          aria-live="polite"
-          className={
-            actionMsgTone === 'success'
-              ? 'alert alert-success text-sm'
-              : actionMsgTone === 'error'
-                ? 'alert alert-error text-sm'
-                : 'alert alert-info text-sm'
-          }
-        >
-          {actionMsg}
-        </div>
+      {sync.actionMsg && !sync.busy ? (
+        <AlertBanner tone={sync.actionMsgTone}>{sync.actionMsg}</AlertBanner>
       ) : null}
 
-      <SectionCard
-        title="Mis tareas"
-        subtitle="Portafolio de actividades importadas desde Google Classroom."
-        titleIcon={<HiClipboardDocumentList aria-hidden />}
-        actions={
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="badge badge-ghost badge-sm">
-              {formatId(tasksMeta?.total ?? tasks.length)} registros
-            </span>
-            <Link to="/teacher/integraciones" className="btn btn-outline btn-sm">
-              Importar de Classroom
-            </Link>
-            <button
-              type="button"
-              className="btn btn-outline btn-sm gap-1"
-              disabled={syncingTaskId != null || syncingAll || syncingStudents}
-              aria-busy={syncingStudents}
-              onClick={() => void syncClassroomStudents()}
-            >
-              {syncingStudents ? (
-                <>
-                  <span className="loading loading-spinner loading-sm" aria-hidden />
-                  Sincronizando…
-                </>
-              ) : (
-                <>
-                  <HiUserGroup className="h-4 w-4" aria-hidden />
-                  Sincronizar estudiantes
-                </>
-              )}
-            </button>
-            <button
-              type="button"
-              className="btn btn-outline btn-sm gap-1"
-              disabled={syncingTaskId != null || syncingAll || syncingStudents}
-              aria-busy={syncingAll}
-              onClick={() => void syncAllClassroomTasks()}
-            >
-              {syncingAll ? (
-                <>
-                  <span className="loading loading-spinner loading-sm" aria-hidden />
-                  Sincronizando…
-                </>
-              ) : (
-                <>
-                  <HiArrowPath className="h-4 w-4" aria-hidden />
-                  Sincronizar todo
-                </>
-              )}
-            </button>
-          </div>
-        }
-      >
-        {(tasksMeta?.total ?? 0) === 0 ? (
-          <EmptyState
-            title="Aun no tienes tareas importadas."
-            detail={
-              classroomDemo
-                ? 'Importa las tareas de demo en Integraciones (Matematicas 3A, las 2 actividades).'
-                : 'Conecta Google Classroom e importa tareas para iniciar el ciclo de recompensas.'
-            }
-          />
-        ) : (
-          <div className="space-y-3">
-            <div className="overflow-x-auto">
-              <table className="table table-zebra table-sm">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Titulo</th>
-                    <th>Origen</th>
-                    <th>Estado</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {tasks.map((t) => {
-                    const dueLine = formatTaskDueLine(t.dueAt)
-                    return (
-                      <tr key={t.id}>
-                        <th>{formatId(t.id)}</th>
-                        <td>
-                          <div>{t.title}</div>
-                          {dueLine ? (
-                            <div className="text-xs text-base-content/60">{dueLine}</div>
-                          ) : null}
-                        </td>
-                        <td>
-                          {t.externalSource === 'google_classroom' ? (
-                            <span className="badge badge-info badge-sm">Classroom</span>
-                          ) : (
-                            <span className="badge badge-ghost badge-sm">Manual</span>
-                          )}
-                        </td>
-                        <td>
-                          <span className={statusBadgeClass(t.status)}>
-                            {TASK_STATUS_LABELS[t.status as keyof typeof TASK_STATUS_LABELS] ?? t.status}
-                          </span>
-                        </td>
-                        <td className="flex flex-wrap gap-1">
-                          {isSyncableClassroomTask(t) ? (
-                            <button
-                              type="button"
-                              className="btn btn-primary btn-sm gap-1"
-                              disabled={syncingTaskId != null || syncingAll || syncingStudents}
-                              aria-busy={syncingTaskId === t.id}
-                              onClick={() => void syncClassroomTask(t.id)}
-                              title={
-                                t.syncMetadata?.minGrade != null
-                                  ? `Nota minima: ${t.syncMetadata.minGrade}`
-                                  : undefined
-                              }
-                            >
-                              {syncingTaskId === t.id ? (
-                                <>
-                                  <span className="loading loading-spinner loading-sm" aria-hidden />
-                                  Sincronizando…
-                                </>
-                              ) : (
-                                <>
-                                  <HiArrowPath className="h-4 w-4" aria-hidden />
-                                  Sincronizar
-                                </>
-                              )}
-                            </button>
-                          ) : null}
-                          {t.status === 'active' ? (
-                            <button
-                              type="button"
-                              className="btn btn-outline btn-sm gap-1"
-                              disabled={syncingTaskId != null || syncingAll || syncingStudents}
-                              onClick={() => closeTask(t.id)}
-                            >
-                              <HiLockClosed className="h-4 w-4" aria-hidden />
-                              Cerrar
-                            </button>
-                          ) : (
-                            '—'
-                          )}
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <TablePagination
-              page={tasksMeta?.currentPage ?? tasksPage}
-              perPage={tasksMeta?.perPage ?? tasksPerPage}
-              total={tasksMeta?.total ?? tasks.length}
-              onPageChange={(nextPage) => setTasksPage(nextPage)}
-              onPerPageChange={(nextPerPage) => {
-                setTasksPerPage(nextPerPage)
-                setTasksPage(1)
-              }}
-            />
-          </div>
-        )}
-      </SectionCard>
-
+      <TeacherTasksTable
+        tasks={data?.tasks ?? []}
+        tasksMeta={data?.tasksMeta ?? null}
+        page={page}
+        perPage={perPage}
+        classroomDemo={classroomDemo}
+        busy={sync.busy}
+        syncingTaskId={sync.syncingTaskId}
+        syncingAll={sync.syncingAll}
+        syncingStudents={sync.syncingStudents}
+        onPageChange={onPageChange}
+        onPerPageChange={onPerPageChange}
+        onSyncTask={(id) => void sync.syncClassroomTask(id)}
+        onSyncAll={() => void sync.syncAllClassroomTasks()}
+        onSyncStudents={() => void sync.syncClassroomStudents()}
+        onCloseTask={(id) => void closeTask(id)}
+      />
     </div>
   )
 }

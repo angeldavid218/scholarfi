@@ -1,7 +1,7 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 
-export function RequireAuth() {
+export const RequireAuth = () => {
   const { token, bootstrapping } = useAuth()
   const location = useLocation()
 

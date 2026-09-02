@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { HiBuildingOffice2, HiClipboardDocumentList, HiArrowPath } from 'react-icons/hi2'
 import { api, ApiError, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
+import { AlertBanner } from '../../components/ui/AlertBanner'
 import { ExecutiveHero, KpiStrip, SectionCard } from '../../components/ui/executive'
+import { PageSpinner } from '../../components/ui/PageSpinner'
 import { formatId } from '../../i18n/format'
 
 type DashboardSummary = {
@@ -42,13 +44,7 @@ export function NgoHome() {
     loadSummary()
   }, [loadSummary])
 
-  if (loading) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <span className="loading loading-md loading-spinner text-primary" aria-label="Cargando" />
-      </div>
-    )
-  }
+  if (loading) return <PageSpinner />
 
   if (error) {
     return (
@@ -58,7 +54,7 @@ export function NgoHome() {
           title="Consolidado de Ecosistema"
           subtitle="Monitoreo consolidado del avance y gobernanza institucional del programa ScholarFi."
         />
-        <div className="alert alert-error">{error}</div>
+        <AlertBanner tone="error">{error}</AlertBanner>
         <button type="button" className="btn btn-primary" onClick={() => void loadSummary(true)}>
           Reintentar
         </button>

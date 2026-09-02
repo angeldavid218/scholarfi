@@ -1,22 +1,30 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import { HiGift, HiWallet } from 'react-icons/hi2'
 import { api, ApiError, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
 import { StudentAchievementsPanel } from '../../components/student/StudentAchievementsPanel'
 import { StudentDiplomaCard } from '../../components/student/StudentDiplomaCard'
+import { AlertBanner } from '../../components/ui/AlertBanner'
 import { EmptyState, KpiStrip } from '../../components/ui/executive'
+import { PageSpinner } from '../../components/ui/PageSpinner'
+import { useTokenResource } from '../../hooks/useTokenResource'
 import { CREDIT_TOKEN_NAME } from '../../i18n/es'
 import { formatAmount, formatCreditsWithUnit, formatId } from '../../i18n/format'
 
-type TaskRow = { id: number }
-type SubmissionRow = { id: number }
+interface TaskRow {
+  id: number
+}
 
-type Balance = {
+interface SubmissionRow {
+  id: number
+}
+
+interface Balance {
   simulatedBalance: number
   institutionId: number | null
 }
 
-type CatalogReward = {
+interface CatalogReward {
   id: number
   title: string
   description: string | null
@@ -24,63 +32,46 @@ type CatalogReward = {
   isActive: boolean
 }
 
-/**
- * Student summary route: KPIs only; tasks and submissions use dedicated routes.
- */
-export function StudentHome() {
+interface StudentHomeData {
+  balance: Balance | null
+  taskCount: number
+  submissionCount: number
+  catalog: CatalogReward[]
+}
+
+export const StudentHome = () => {
   const { token } = useAuth()
-  const [balance, setBalance] = useState<Balance | null>(null)
-  const [taskCount, setTaskCount] = useState(0)
-  const [submissionCount, setSubmissionCount] = useState(0)
-  const [catalog, setCatalog] = useState<CatalogReward[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { data, loading, error, setData } = useTokenResource<StudentHomeData>({
+    load: async (authToken) => {
+      const [b, t, s, rewards] = await Promise.all([
+        api.get<Balance>('/rewards/balance', { token: authToken }),
+        api.get<TaskRow[]>('/tasks/available', { token: authToken }),
+        api.get<SubmissionRow[]>('/submissions', { token: authToken }),
+        api.get<CatalogReward[]>('/rewards/catalog', { token: authToken }),
+      ])
+      return {
+        balance: b,
+        taskCount: Array.isArray(t) ? t.length : 0,
+        submissionCount: Array.isArray(s) ? s.length : 0,
+        catalog: Array.isArray(rewards) ? rewards : [],
+      }
+    },
+  })
+
   const [redeemMsg, setRedeemMsg] = useState<string | null>(null)
   const [redeemTone, setRedeemTone] = useState<'info' | 'success' | 'error'>('info')
   const [redeemBusyId, setRedeemBusyId] = useState<number | null>(null)
 
-  const load = useCallback(async () => {
-    if (!token) return
-    setError(null)
-    setLoading(true)
-    try {
-      const [b, t, s, rewards] = await Promise.all([
-        api.get<Balance>('/rewards/balance', { token }),
-        api.get<TaskRow[]>('/tasks/available', { token }),
-        api.get<SubmissionRow[]>('/submissions', { token }),
-        api.get<CatalogReward[]>('/rewards/catalog', { token }),
-      ])
-      setBalance(b)
-      setTaskCount(Array.isArray(t) ? t.length : 0)
-      setSubmissionCount(Array.isArray(s) ? s.length : 0)
-      setCatalog(Array.isArray(rewards) ? rewards : [])
-    } catch (e) {
-      setError(e instanceof ApiError ? getApiErrorMessage(e.body) : 'Error al cargar')
-    } finally {
-      setLoading(false)
-    }
-  }, [token])
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    load()
-  }, [load])
-
-  async function redeemReward(reward: CatalogReward) {
+  const redeemReward = async (reward: CatalogReward) => {
     if (!token) return
     setRedeemMsg(null)
     setRedeemBusyId(reward.id)
     try {
-      await api.post('/redemptions', {
-        token,
-        json: { rewardId: reward.id },
-      })
+      await api.post('/redemptions', { token, json: { rewardId: reward.id } })
       setRedeemTone('success')
-      setRedeemMsg(
-        `Solicitud de canje enviada para "${reward.title}". Un admin escolar la revisara.`
-      )
+      setRedeemMsg(`Solicitud de canje enviada para "${reward.title}". Un admin escolar la revisara.`)
       const b = await api.get<Balance>('/rewards/balance', { token })
-      setBalance(b)
+      setData((prev) => (prev ? { ...prev, balance: b } : prev))
     } catch (e) {
       setRedeemTone('error')
       setRedeemMsg(e instanceof ApiError ? getApiErrorMessage(e.body) : 'No se pudo solicitar el canje')
@@ -89,23 +80,16 @@ export function StudentHome() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <span className="loading loading-md loading-spinner text-primary" aria-label="Cargando" />
-      </div>
-    )
-  }
+  if (loading) return <PageSpinner />
 
-  const creditsBalance = balance?.simulatedBalance ?? 0
+  const creditsBalance = data?.balance?.simulatedBalance ?? 0
+  const catalog = data?.catalog ?? []
+  const taskCount = data?.taskCount ?? 0
+  const submissionCount = data?.submissionCount ?? 0
 
   return (
     <div className="space-y-6">
-      {error && (
-        <div role="alert" className="alert alert-error">
-          {error}
-        </div>
-      )}
+      {error ? <AlertBanner tone="error">{error}</AlertBanner> : null}
 
       <section
         className="relative overflow-hidden rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/[0.14] via-base-100 to-base-200 p-6 shadow-[0_18px_42px_-14px_color-mix(in_oklab,var(--color-primary)_38%,transparent)] md:p-8"
@@ -119,12 +103,15 @@ export function StudentHome() {
           <div className="min-w-0 flex-1 space-y-3">
             <p className="sf-eyebrow m-0">Panel estudiantil</p>
             <div>
-              <h1 id="student-credits-heading" className="m-0 text-lg font-semibold tracking-tight text-base-content md:text-xl">
+              <h1
+                id="student-credits-heading"
+                className="m-0 text-lg font-semibold tracking-tight text-base-content md:text-xl"
+              >
                 Tus créditos
               </h1>
               <p className="mt-1 max-w-prose text-sm text-base-content/75">
-                Ganas <span className="font-semibold text-primary">{CREDIT_TOKEN_NAME}</span> al completar tareas y recibir
-                la aprobación final; aquí ves tu acumulado en la institución.
+                Ganas <span className="font-semibold text-primary">{CREDIT_TOKEN_NAME}</span> al completar
+                tareas y recibir la aprobación final; aquí ves tu acumulado en la institución.
               </p>
             </div>
             <p
@@ -159,13 +146,13 @@ export function StudentHome() {
           ]}
         />
         <p className="text-xs text-base-content/55">
-          Para sumar créditos, entrega evidencias en <span className="font-medium text-base-content/70">Tareas disponibles</span>
-          . Consulta resultados en <span className="font-medium text-base-content/70">Mis envios</span>.
+          Para sumar créditos, entrega evidencias en{' '}
+          <span className="font-medium text-base-content/70">Tareas disponibles</span>. Consulta resultados
+          en <span className="font-medium text-base-content/70">Mis envios</span>.
         </p>
       </div>
 
       <StudentDiplomaCard />
-
       <StudentAchievementsPanel />
 
       <div className="divider"></div>
@@ -182,20 +169,7 @@ export function StudentHome() {
           </p>
         </div>
 
-        {redeemMsg && (
-          <div
-            role="status"
-            className={`alert text-sm ${
-              redeemTone === 'success'
-                ? 'alert-success'
-                : redeemTone === 'error'
-                  ? 'alert-error'
-                  : 'alert-info'
-            }`}
-          >
-            {redeemMsg}
-          </div>
-        )}
+        {redeemMsg ? <AlertBanner tone={redeemTone}>{redeemMsg}</AlertBanner> : null}
 
         {catalog.length === 0 ? (
           <EmptyState
@@ -227,7 +201,7 @@ export function StudentHome() {
                       type="button"
                       className="btn btn-primary btn-sm w-full"
                       disabled={busy || !canAfford}
-                      onClick={() => redeemReward(item)}
+                      onClick={() => void redeemReward(item)}
                       title={!canAfford ? 'Creditos insuficientes' : undefined}
                     >
                       {busy ? (

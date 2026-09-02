@@ -14,7 +14,7 @@ const MODAL_WIDTHS = {
 
 export type ModalSize = keyof typeof MODAL_WIDTHS
 
-export type ModalProps = {
+export interface ModalProps {
   open: boolean
   onClose: () => void
   title: ReactNode
@@ -31,7 +31,7 @@ export type ModalProps = {
  * DaisyUI modal backed by `<dialog>` — backdrop click, ESC, and ✕ close the dialog.
  * Parent should clear related state in `onClose`.
  */
-export function Modal({
+export const Modal = ({
   open,
   onClose,
   title,
@@ -39,7 +39,7 @@ export function Modal({
   size = 'lg',
   boxClassName = '',
   titleClassName = 'text-lg font-bold',
-}: ModalProps) {
+}: ModalProps) => {
   const ref = useRef<HTMLDialogElement>(null)
 
   useEffect(() => {
