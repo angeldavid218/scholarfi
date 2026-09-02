@@ -293,7 +293,7 @@ export const SuperHome = () => {
           { label: 'ONGs registradas', value: formatId(ngos.length), hint: 'Organizaciones cargadas' },
         ]}
       />
-      {error ? <AlertBanner tone="info">{error}</AlertBanner> : null}
+      {error ? <AlertBanner tone="error">{error}</AlertBanner> : null}
       {msg ? <AlertBanner tone="info">{msg}</AlertBanner> : null}
 
       <SuperInstitutionsTable

@@ -239,6 +239,7 @@ export const useClassroomSync = ({ onSynced }: UseClassroomSyncOptions) => {
     actionMsg,
     actionMsgTone,
     setActionMsg,
+    setActionMsgTone,
     syncingTaskId,
     syncingAll,
     syncingStudents,

@@ -57,7 +57,7 @@ export const ChangePasswordModal = ({ open, onClose }: ChangePasswordModalProps)
   }
 
   return (
-    <Modal open={open} onClose={handleClose} title="Cambiar contraseña">
+    <Modal open={open} onClose={handleClose} closeDisabled={submitting} title="Cambiar contraseña">
       <p className="text-sm text-base-content/70">
         Usa tu contraseña actual y elige una nueva de al menos 8 caracteres.
       </p>

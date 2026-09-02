@@ -75,11 +75,14 @@ export const TeacherHome = () => {
   const closeTask = async (id: number) => {
     if (!token) return
     sync.setActionMsg(null)
+    sync.setActionMsgTone('info')
     try {
       await api.patch(`/tasks/${id}/close`, { json: {}, token })
+      sync.setActionMsgTone('success')
       sync.setActionMsg(`Tarea ${id} cerrada.`)
       await reload(true)
     } catch (err) {
+      sync.setActionMsgTone('error')
       sync.setActionMsg(
         err instanceof ApiError ? getApiErrorMessage(err.body) : 'No se pudo cerrar la tarea'
       )

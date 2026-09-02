@@ -6,7 +6,7 @@ import {
   HiChevronDown,
   HiKey,
 } from 'react-icons/hi2'
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 import { loadDemoConfig } from '../demo/demoConfig'
 import { AppSidebar } from './app-shell/AppSidebar'
@@ -17,6 +17,7 @@ import { FeatureErrorBoundary } from './ui/FeatureErrorBoundary'
 const tokenModeLabel = (import.meta.env.VITE_TOKEN_MODE_LABEL as string | undefined)?.trim() ?? ''
 
 export const AppShell = () => {
+  const location = useLocation()
   const { profile, logout } = useAuth()
   const roles = profile?.roles ?? []
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
@@ -136,7 +137,7 @@ export const AppShell = () => {
 
         <main className="min-h-0 min-w-0 flex-1 overflow-x-auto px-4 py-6 text-left lg:px-6">
           <div className="mx-auto w-full max-w-6xl">
-            <FeatureErrorBoundary>
+            <FeatureErrorBoundary resetKey={location.pathname}>
               <Outlet />
             </FeatureErrorBoundary>
           </div>

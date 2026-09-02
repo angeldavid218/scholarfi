@@ -25,6 +25,8 @@ export interface ModalProps {
   boxClassName?: string
   /** Optional class on the title heading */
   titleClassName?: string
+  /** Blocks Escape, backdrop, and ✕ while true; `open={false}` still closes programmatically. */
+  closeDisabled?: boolean
 }
 
 /**
@@ -39,8 +41,10 @@ export const Modal = ({
   size = 'lg',
   boxClassName = '',
   titleClassName = 'text-lg font-bold',
+  closeDisabled = false,
 }: ModalProps) => {
   const ref = useRef<HTMLDialogElement>(null)
+  const closingFromProp = useRef(false)
 
   useEffect(() => {
     const el = ref.current
@@ -48,9 +52,36 @@ export const Modal = ({
     if (open) {
       if (!el.open) el.showModal()
     } else if (el.open) {
+      closingFromProp.current = true
       el.close()
+      closingFromProp.current = false
     }
   }, [open])
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+
+    const handleCancel = (event: Event) => {
+      if (closeDisabled) event.preventDefault()
+    }
+
+    const handleClose = () => {
+      if (closingFromProp.current) return
+      if (closeDisabled) {
+        el.showModal()
+        return
+      }
+      onClose()
+    }
+
+    el.addEventListener('cancel', handleCancel)
+    el.addEventListener('close', handleClose)
+    return () => {
+      el.removeEventListener('cancel', handleCancel)
+      el.removeEventListener('close', handleClose)
+    }
+  }, [closeDisabled, onClose])
 
   const boxStyle: CSSProperties = {
     maxWidth: MODAL_WIDTHS[size],
@@ -58,7 +89,7 @@ export const Modal = ({
   }
 
   return (
-    <dialog ref={ref} className="modal" onClose={onClose}>
+    <dialog ref={ref} className="modal">
       <div className={`modal-box relative ${boxClassName}`.trim()} style={boxStyle}>
         {/* Title + children before the close control so the first focusable inside the dialog is usually in `children` (e.g. textarea), not the ✕ button. */}
         <h3 className={`pe-10 ${titleClassName}`.trim()}>{title}</h3>
