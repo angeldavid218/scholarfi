@@ -7,7 +7,9 @@ import {
   GoogleClassroomTaskList,
   type GoogleClassroomCourseWork,
 } from '../../components/teacher/GoogleClassroomTaskList'
+import { AlertBanner } from '../../components/ui/AlertBanner'
 import { EmptyState, ExecutiveHero, SectionCard } from '../../components/ui/executive'
+import { PageSpinner } from '../../components/ui/PageSpinner'
 import { CREDIT_TOKEN_NAME } from '../../i18n/es'
 
 type IntegrationStatus = {
@@ -72,6 +74,7 @@ export function TeacherIntegrationsPage() {
   }, [token])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true)
     void loadStatus().finally(() => setLoading(false))
   }, [loadStatus])
@@ -81,6 +84,7 @@ export function TeacherIntegrationsPage() {
       const msg = oauthConnected
         ? 'Google Classroom conectado correctamente.'
         : `No se pudo conectar Google Classroom: ${oauthError}`
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActionMsg(msg)
       setSearchParams({}, { replace: true })
     }
@@ -252,13 +256,7 @@ export function TeacherIntegrationsPage() {
     void runImport(e.currentTarget, 'selected')
   }
 
-  if (loading) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <span className="loading loading-md loading-spinner text-primary" aria-label="Cargando" />
-      </div>
-    )
-  }
+  if (loading) return <PageSpinner />
 
   return (
     <div className="space-y-6">
@@ -272,7 +270,7 @@ export function TeacherIntegrationsPage() {
         }
       />
 
-      {error && <div className="alert alert-error">{error}</div>}
+      {error ? <AlertBanner tone="error">{error}</AlertBanner> : null}
       {actionMsg && (
         <div
           role="status"

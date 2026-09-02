@@ -1,0 +1,42 @@
+---
+description: React component and hooks patterns for TSX files
+globs: "**/*.tsx"
+alwaysApply: false
+---
+
+# React components
+
+- Functional components only; `const` arrow components with named exports
+- Keep components focused; extract complex logic into `use*` hooks
+- Props via interfaces; avoid prop drilling beyond ~2 levels
+- Do not call hooks conditionally
+- Prefer composition over deep prop trees
+
+```typescript
+interface ButtonProps {
+  label: string;
+  onClick: () => void;
+  variant?: "primary" | "secondary";
+  disabled?: boolean;
+}
+
+export const Button = ({
+  label,
+  onClick,
+  variant = "primary",
+  disabled = false,
+}: ButtonProps) => {
+  return (
+    <button className={`btn btn-${variant}`} onClick={onClick} disabled={disabled}>
+      {label}
+    </button>
+  );
+};
+```
+
+## Performance
+
+- Lazy-load heavy routes/components
+- Virtualize long lists
+- Wrap feature sections with error boundaries and meaningful fallbacks
+- Do not add `useMemo` / `useCallback` by default; only when measuring a real need

@@ -1,17 +1,12 @@
 import { HiExclamationTriangle } from 'react-icons/hi2'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import { PageSpinner } from '../components/ui/PageSpinner'
 
-export function HomeRedirect() {
+export const HomeRedirect = () => {
   const { profile, bootstrapping } = useAuth()
 
-  if (bootstrapping) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <span className="loading loading-md loading-spinner text-primary" aria-label="Cargando" />
-      </div>
-    )
-  }
+  if (bootstrapping) return <PageSpinner />
 
   const roles = profile?.roles ?? []
   if (roles.includes('super_admin')) return <Navigate to="/super" replace />

@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
-import { HiMagnifyingGlass, HiUserGroup, HiUserPlus, HiUsers } from 'react-icons/hi2'
 import { api, ApiError, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
-import { EmptyState, ExecutiveHero, KpiStrip, SectionCard } from '../../components/ui/executive'
-import { TablePagination } from '../../components/ui/TablePagination'
+import { AdminRosterTable, type RosterRow } from '../../components/admin/AdminRosterTable'
+import { AdminAssignRoleForm, AdminCreateUserForm } from '../../components/admin/AdminUserForms'
+import { AlertBanner } from '../../components/ui/AlertBanner'
+import { ExecutiveHero, KpiStrip } from '../../components/ui/executive'
+import { PageSpinner } from '../../components/ui/PageSpinner'
+import { usePagination } from '../../hooks/usePagination'
 import { formatCreditsWithUnit, formatId } from '../../i18n/format'
 import type { PaginatedMeta, PaginatedPayload } from '../../types'
 
-type HistorySummary = {
+interface HistorySummary {
   transactionCount: number
   creditsTotal: number
   creditPool?: {
@@ -18,24 +21,7 @@ type HistorySummary = {
   } | null
 }
 
-type RosterRow = {
-  id: number
-  email: string
-  fullName: string | null
-  roles: string[]
-}
-
-function formatRolesEs(roles: string[]): string {
-  const map: Record<string, string> = {
-    student: 'Estudiante',
-    teacher: 'Docente',
-    school_admin: 'Admin escolar',
-  }
-  if (!roles.length) return '—'
-  return roles.map((r) => map[r] ?? r.replace(/_/g, ' ')).join(', ')
-}
-
-export function AdminHome() {
+export const AdminHome = () => {
   const { token } = useAuth()
   const [summary, setSummary] = useState<HistorySummary | null>(null)
   const [loading, setLoading] = useState(true)
@@ -46,8 +32,7 @@ export function AdminHome() {
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [roster, setRoster] = useState<RosterRow[]>([])
   const [rosterMeta, setRosterMeta] = useState<PaginatedMeta | null>(null)
-  const [rosterPage, setRosterPage] = useState(1)
-  const [rosterPerPage, setRosterPerPage] = useState(10)
+  const { page, perPage, setPage, onPageChange, onPerPageChange } = usePagination()
   const [tableBusy, setTableBusy] = useState(false)
   const [refreshNonce, setRefreshNonce] = useState(0)
   const firstLoadDone = useRef(false)
@@ -56,7 +41,6 @@ export function AdminHome() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [role, setRole] = useState<'teacher' | 'student' | 'school_admin'>('student')
-
   const [assignUserId, setAssignUserId] = useState('')
   const [assignRole, setAssignRole] = useState<'teacher' | 'student' | 'school_admin'>('teacher')
 
@@ -66,9 +50,8 @@ export function AdminHome() {
   }, [searchInput])
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setRosterPage(1)
-  }, [debouncedSearch])
+    setPage(1)
+  }, [debouncedSearch, setPage])
 
   useEffect(() => {
     firstLoadDone.current = false
@@ -93,8 +76,8 @@ export function AdminHome() {
       setError(null)
       try {
         const params = new URLSearchParams({
-          page: String(rosterPage),
-          perPage: String(rosterPerPage),
+          page: String(page),
+          perPage: String(perPage),
         })
         if (debouncedSearch) params.set('search', debouncedSearch)
         const [s, r] = await Promise.all([
@@ -121,22 +104,17 @@ export function AdminHome() {
     return () => {
       cancelled = true
     }
-  }, [token, rosterPage, rosterPerPage, debouncedSearch, refreshNonce])
+  }, [token, page, perPage, debouncedSearch, refreshNonce])
 
   const bumpRoster = useCallback(() => setRefreshNonce((n) => n + 1), [])
 
-  async function provisionUser(e: FormEvent) {
+  const provisionUser = async (e: FormEvent) => {
     e.preventDefault()
     if (!token) return
     setMsg(null)
     try {
       await api.post('/institutions/users', {
-        json: {
-          fullName: fullName.trim(),
-          email: email.trim(),
-          password,
-          role,
-        },
+        json: { fullName: fullName.trim(), email: email.trim(), password, role },
         token,
       })
       setMsg('Usuario creado.')
@@ -149,7 +127,7 @@ export function AdminHome() {
     }
   }
 
-  async function assignRoleSubmit(e: FormEvent) {
+  const assignRoleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!token) return
     setMsg(null)
@@ -167,13 +145,7 @@ export function AdminHome() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <span className="loading loading-md loading-spinner text-primary" aria-label="Cargando" />
-      </div>
-    )
-  }
+  if (loading) return <PageSpinner />
 
   const txCount = summary?.transactionCount ?? 0
   const creditsTotal = summary?.creditsTotal ?? 0
@@ -207,197 +179,41 @@ export function AdminHome() {
           },
         ]}
       />
-
-      {error && <div className="alert alert-error">{error}</div>}
-      {msg && <div className="alert alert-info text-sm">{msg}</div>}
-
-
+      {error ? <AlertBanner tone="error">{error}</AlertBanner> : null}
+      {msg ? <AlertBanner tone="info">{msg}</AlertBanner> : null}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <SectionCard
-          title="Alta de usuario"
-          subtitle="Incorpora nuevos perfiles operativos dentro de tu institucion."
-          titleIcon={<HiUserPlus aria-hidden />}
-        >
-          <form className="mt-2 grid gap-4" onSubmit={provisionUser}>
-            <label className="form-control w-full">
-              <div className="label pt-0">
-                <span className="label-text">Nombre</span>
-              </div>
-              <input
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                required
-                minLength={2}
-                className="input input-bordered w-full"
-              />
-            </label>
-            <label className="form-control w-full">
-              <div className="label pt-0">
-                <span className="label-text">Correo</span>
-              </div>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="input input-bordered w-full"
-              />
-            </label>
-            <label className="form-control w-full">
-              <div className="label pt-0">
-                <span className="label-text">Contrasena</span>
-              </div>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={8}
-                className="input input-bordered w-full"
-              />
-            </label>
-            <label className="form-control w-full">
-              <div className="label pt-0">
-                <span className="label-text">Rol</span>
-              </div>
-              <select
-                value={role}
-                onChange={(e) =>
-                  setRole(e.target.value as 'teacher' | 'student' | 'school_admin')
-                }
-                className="select select-bordered w-full"
-              >
-                <option value="student">Estudiante</option>
-                <option value="teacher">Docente</option>
-                <option value="school_admin">Admin escolar</option>
-              </select>
-            </label>
-            <button type="submit" className="btn btn-primary w-fit">
-              Crear
-            </button>
-          </form>
-        </SectionCard>
-
-        <SectionCard
-          title="Reasignar rol"
-          subtitle="Ajusta la responsabilidad operativa manteniendo control institucional."
-          titleIcon={<HiUserGroup aria-hidden />}
-        >
-          <p className="text-sm text-base-content/70">Reemplaza los roles del usuario.</p>
-          <form className="mt-2 grid max-w-xl gap-4" onSubmit={assignRoleSubmit}>
-            <label className="form-control w-full">
-              <div className="label pt-0">
-                <span className="label-text">ID usuario</span>
-              </div>
-              <input
-                value={assignUserId}
-                onChange={(e) => setAssignUserId(e.target.value)}
-                required
-                className="input input-bordered w-full"
-              />
-            </label>
-            <label className="form-control w-full">
-              <div className="label pt-0">
-                <span className="label-text">Rol</span>
-              </div>
-              <select
-                value={assignRole}
-                onChange={(e) =>
-                  setAssignRole(e.target.value as 'teacher' | 'student' | 'school_admin')
-                }
-                className="select select-bordered w-full"
-              >
-                <option value="student">Estudiante</option>
-                <option value="teacher">Docente</option>
-                <option value="school_admin">Admin escolar</option>
-              </select>
-            </label>
-            <button type="submit" className="btn btn-outline btn-primary w-fit">
-              Guardar
-            </button>
-          </form>
-        </SectionCard>
+        <AdminCreateUserForm
+          fullName={fullName}
+          email={email}
+          password={password}
+          role={role}
+          onFullNameChange={setFullName}
+          onEmailChange={setEmail}
+          onPasswordChange={setPassword}
+          onRoleChange={setRole}
+          onSubmit={(e) => void provisionUser(e)}
+        />
+        <AdminAssignRoleForm
+          userId={assignUserId}
+          role={assignRole}
+          onUserIdChange={setAssignUserId}
+          onRoleChange={setAssignRole}
+          onSubmit={(e) => void assignRoleSubmit(e)}
+        />
       </div>
-      <SectionCard
-        title="Usuarios de la institución"
-        subtitle="Consulta ID, correo, nombre y rol para apoyar la reasignación de permisos."
-        titleIcon={<HiUsers aria-hidden />}
-      >
-        <div className="relative mt-2 space-y-4">
-          {tableBusy ? (
-            <div className="absolute inset-0 z-10 flex items-start justify-center rounded-lg bg-base-100/65 pt-10">
-              <span className="loading loading-md loading-spinner text-primary" aria-label="Cargando" />
-            </div>
-          ) : null}
-          <label className="form-control w-full max-w-md">
-            <div className="label pt-0">
-              <span className="label-text flex items-center gap-2">
-                <HiMagnifyingGlass className="h-4 w-4 opacity-70" aria-hidden />
-                Buscar por nombre
-              </span>
-            </div>
-            <input
-              type="search"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Ej. María García"
-              className="input input-bordered input-sm w-full"
-              autoComplete="off"
-            />
-          </label>
-
-          {(rosterMeta?.total ?? 0) === 0 ? (
-            <EmptyState
-              title="Sin usuarios que coincidan."
-              detail={
-                debouncedSearch
-                  ? 'Prueba con otro nombre o borra el filtro.'
-                  : 'Aún no hay usuarios en esta institución.'
-              }
-            />
-          ) : (
-            <div className="space-y-3">
-              <div className="overflow-x-auto">
-                <table className="table table-zebra table-sm">
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>Correo</th>
-                      <th>Nombre</th>
-                      <th>Rol</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {roster.map((u) => (
-                      <tr key={u.id}>
-                        <th className="tabular-nums">{formatId(u.id)}</th>
-                        <td className="max-w-[14rem] truncate" title={u.email}>
-                          {u.email}
-                        </td>
-                        <td className="max-w-[12rem] truncate" title={u.fullName ?? undefined}>
-                          {u.fullName ?? '—'}
-                        </td>
-                        <td className="text-sm">{formatRolesEs(u.roles)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <TablePagination
-                page={rosterMeta?.currentPage ?? rosterPage}
-                perPage={rosterMeta?.perPage ?? rosterPerPage}
-                total={rosterMeta?.total ?? roster.length}
-                onPageChange={(nextPage) => setRosterPage(nextPage)}
-                onPerPageChange={(nextPerPage) => {
-                  setRosterPerPage(nextPerPage)
-                  setRosterPage(1)
-                }}
-              />
-            </div>
-          )}
-        </div>
-      </SectionCard>
+      <AdminRosterTable
+        roster={roster}
+        rosterMeta={rosterMeta}
+        page={page}
+        perPage={perPage}
+        searchInput={searchInput}
+        debouncedSearch={debouncedSearch}
+        tableBusy={tableBusy}
+        onSearchChange={setSearchInput}
+        onPageChange={onPageChange}
+        onPerPageChange={onPerPageChange}
+      />
     </div>
   )
 }

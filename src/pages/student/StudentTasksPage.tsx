@@ -1,12 +1,18 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { HiClipboardDocumentList, HiPaperAirplane } from 'react-icons/hi2'
 import { api, ApiError, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
+import { AlertBanner } from '../../components/ui/AlertBanner'
 import { EmptyState, ExecutiveHero, KpiStrip, SectionCard } from '../../components/ui/executive'
+import { FormField } from '../../components/ui/FormField'
+import { LoadingButton } from '../../components/ui/LoadingButton'
+import { PageSpinner } from '../../components/ui/PageSpinner'
+import { TableShell } from '../../components/ui/TableShell'
+import { useTokenResource } from '../../hooks/useTokenResource'
 import { formatCreditsWithUnit, formatId } from '../../i18n/format'
 
-type TaskRow = {
+interface TaskRow {
   id: number
   title: string
   description: string
@@ -15,11 +21,16 @@ type TaskRow = {
   status: string
 }
 
-export function StudentTasksPage() {
+export const StudentTasksPage = () => {
   const { token } = useAuth()
-  const [tasks, setTasks] = useState<TaskRow[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { data, loading, error, reload } = useTokenResource<TaskRow[]>({
+    load: async (authToken) => {
+      const t = await api.get<TaskRow[]>('/tasks/available', { token: authToken })
+      return Array.isArray(t) ? t : []
+    },
+  })
+
+  const tasks = data ?? []
   const [submitTaskId, setSubmitTaskId] = useState<number | null>(null)
   const [evidenceText, setEvidenceText] = useState('')
   const [evidenceUrl, setEvidenceUrl] = useState('')
@@ -27,26 +38,7 @@ export function StudentTasksPage() {
   const [submitMsg, setSubmitMsg] = useState<string | null>(null)
   const [lastCreatedId, setLastCreatedId] = useState<number | null>(null)
 
-  const load = useCallback(async () => {
-    if (!token) return
-    setError(null)
-    setLoading(true)
-    try {
-      const t = await api.get<TaskRow[]>('/tasks/available', { token })
-      setTasks(Array.isArray(t) ? t : [])
-    } catch (e) {
-      setError(e instanceof ApiError ? getApiErrorMessage(e.body) : 'Error al cargar')
-    } finally {
-      setLoading(false)
-    }
-  }, [token])
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    load()
-  }, [load])
-
-  async function onSubmit(e: FormEvent) {
+  const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!token || !submitTaskId) return
     setSubmitting(true)
@@ -64,23 +56,15 @@ export function StudentTasksPage() {
       setEvidenceText('')
       setEvidenceUrl('')
       setSubmitTaskId(null)
-      await load()
+      await reload(true)
     } catch (err) {
-      setSubmitMsg(
-        err instanceof ApiError ? getApiErrorMessage(err.body) : 'No se pudo enviar la evidencia'
-      )
+      setSubmitMsg(err instanceof ApiError ? getApiErrorMessage(err.body) : 'No se pudo enviar la evidencia')
     } finally {
       setSubmitting(false)
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <span className="loading loading-md loading-spinner text-primary" aria-label="Cargando" />
-      </div>
-    )
-  }
+  if (loading) return <PageSpinner />
 
   return (
     <div className="space-y-6">
@@ -94,15 +78,9 @@ export function StudentTasksPage() {
           { label: 'Tareas activas', value: formatId(tasks.length), hint: 'Disponibles para entregar evidencia' },
         ]}
       />
-
-      {error && (
-        <div role="alert" className="alert alert-error">
-          {error}
-        </div>
-      )}
-
-      {lastCreatedId !== null && (
-        <div className="alert alert-success flex flex-wrap items-center justify-between gap-2">
+      {error ? <AlertBanner tone="error">{error}</AlertBanner> : null}
+      {lastCreatedId !== null ? (
+        <AlertBanner tone="success" className="flex flex-wrap items-center justify-between gap-2">
           <span>
             Ultimo envio:{' '}
             <Link className="link font-semibold" to={`/student/submissions/${lastCreatedId}`}>
@@ -112,8 +90,8 @@ export function StudentTasksPage() {
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => setLastCreatedId(null)}>
             Cerrar
           </button>
-        </div>
-      )}
+        </AlertBanner>
+      ) : null}
 
       <SectionCard
         title="Tareas disponibles"
@@ -123,52 +101,47 @@ export function StudentTasksPage() {
         {tasks.length === 0 ? (
           <EmptyState title="No hay tareas activas." detail="Cuando un docente publique tareas, apareceran aqui." />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="table table-zebra table-sm">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Titulo</th>
-                  <th>Créditos</th>
-                  <th />
+          <TableShell compact>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Titulo</th>
+                <th>Créditos</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {tasks.map((t) => (
+                <tr key={t.id}>
+                  <th>{formatId(t.id)}</th>
+                  <td>{t.title}</td>
+                  <td>{formatCreditsWithUnit(t.rewardAmount)}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm gap-1"
+                      onClick={() => {
+                        setSubmitTaskId(t.id)
+                        setSubmitMsg(null)
+                      }}
+                    >
+                      <HiPaperAirplane className="h-4 w-4" aria-hidden />
+                      Enviar evidencia
+                    </button>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {tasks.map((t) => (
-                  <tr key={t.id}>
-                    <th>{formatId(t.id)}</th>
-                    <td>{t.title}</td>
-                    <td>{formatCreditsWithUnit(t.rewardAmount)}</td>
-                    <td>
-                      <button
-                        type="button"
-                        className="btn btn-primary btn-sm gap-1"
-                        onClick={() => {
-                          setSubmitTaskId(t.id)
-                          setSubmitMsg(null)
-                        }}
-                      >
-                        <HiPaperAirplane className="h-4 w-4" aria-hidden />
-                        Enviar evidencia
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </TableShell>
         )}
       </SectionCard>
 
-      {submitTaskId !== null && (
+      {submitTaskId !== null ? (
         <section className="card border border-base-300 bg-base-100 shadow-sm">
           <div className="card-body">
             <h2 className="card-title text-lg">Nuevo envio (tarea #{submitTaskId})</h2>
-            <form className="mt-2 flex max-w-lg flex-col gap-4" onSubmit={onSubmit}>
-              <label className="form-control w-full">
-                <div className="label pt-0">
-                  <span className="label-text">Evidencia (texto)</span>
-                </div>
+            <form className="mt-2 flex max-w-lg flex-col gap-4" onSubmit={(e) => void onSubmit(e)}>
+              <FormField label="Evidencia (texto)">
                 <textarea
                   value={evidenceText}
                   onChange={(e) => setEvidenceText(e.target.value)}
@@ -176,11 +149,8 @@ export function StudentTasksPage() {
                   required
                   minLength={2}
                 />
-              </label>
-              <label className="form-control w-full">
-                <div className="label pt-0">
-                  <span className="label-text">URL evidencia (opcional)</span>
-                </div>
+              </FormField>
+              <FormField label="URL evidencia (opcional)">
                 <input
                   type="url"
                   value={evidenceUrl}
@@ -188,17 +158,12 @@ export function StudentTasksPage() {
                   placeholder="https://…"
                   className="input input-bordered w-full"
                 />
-              </label>
-              {submitMsg && (
-                <div
-                  role="status"
-                  className={
-                    submitMsg.includes('correctamente') ? 'alert alert-success text-sm' : 'alert alert-error text-sm'
-                  }
-                >
+              </FormField>
+              {submitMsg ? (
+                <AlertBanner tone={submitMsg.includes('correctamente') ? 'success' : 'error'}>
                   {submitMsg}
-                </div>
-              )}
+                </AlertBanner>
+              ) : null}
               <div className="card-actions justify-end gap-2">
                 <button
                   type="button"
@@ -210,21 +175,14 @@ export function StudentTasksPage() {
                 >
                   Cancelar
                 </button>
-                <button type="submit" className="btn btn-primary" disabled={submitting}>
-                  {submitting ? (
-                    <>
-                      <span className="loading loading-spinner loading-sm" />
-                      Enviando…
-                    </>
-                  ) : (
-                    'Enviar'
-                  )}
-                </button>
+                <LoadingButton type="submit" className="btn btn-primary" loading={submitting} loadingLabel="Enviando…">
+                  Enviar
+                </LoadingButton>
               </div>
             </form>
           </div>
         </section>
-      )}
+      ) : null}
     </div>
   )
 }

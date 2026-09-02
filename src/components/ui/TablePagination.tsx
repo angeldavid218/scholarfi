@@ -1,4 +1,4 @@
-type TablePaginationProps = {
+interface TablePaginationProps {
   page: number
   perPage: number
   total: number
@@ -8,7 +8,7 @@ type TablePaginationProps = {
   className?: string
 }
 
-export function TablePagination({
+export const TablePagination = ({
   page,
   perPage,
   total,
@@ -16,7 +16,7 @@ export function TablePagination({
   onPerPageChange,
   perPageOptions = [10, 20, 50],
   className,
-}: TablePaginationProps) {
+}: TablePaginationProps) => {
   const safePerPage = perPage > 0 ? perPage : 10
   const totalPages = Math.max(1, Math.ceil(total / safePerPage))
   const currentPage = Math.min(Math.max(page, 1), totalPages)
