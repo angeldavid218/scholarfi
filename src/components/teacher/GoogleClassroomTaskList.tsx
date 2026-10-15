@@ -18,6 +18,7 @@ type GoogleClassroomTaskListProps = {
   onSelectedIdsChange: (ids: string[]) => void
   hasNextPage?: boolean
   hasPrevPage?: boolean
+  pageNumber?: number
   onNextPage?: () => void
   onPrevPage?: () => void
 }
@@ -30,12 +31,12 @@ export function GoogleClassroomTaskList({
   onSelectedIdsChange,
   hasNextPage = false,
   hasPrevPage = false,
+  pageNumber = 1,
   onNextPage,
   onPrevPage,
 }: GoogleClassroomTaskListProps) {
   const allSelected = tasks.length > 0 && tasks.every((task) => selectedIds.includes(task.id))
   const showPagination = (hasNextPage || hasPrevPage) && (onNextPage || onPrevPage)
-  const pageNumber = hasPrevPage ? '2+' : '1'
 
   function toggleTask(taskId: string) {
     onSelectedIdsChange(

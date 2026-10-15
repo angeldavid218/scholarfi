@@ -97,6 +97,8 @@ const API_ERROR_CODE_MESSAGES: Record<string, string> = {
   CLASSROOM_COURSEWORK_LIST_FAILED: 'No se pudieron cargar las tareas.',
   GOOGLE_CLASSROOM_FORBIDDEN: 'No tienes permiso para acceder a este curso de Google Classroom.',
   GOOGLE_CLASSROOM_NOT_FOUND: 'El curso de Google Classroom no existe o fue eliminado.',
+  GOOGLE_CLASSROOM_BAD_REQUEST: 'Solicitud inválida a Google Classroom. Verifica los parámetros.',
+  GOOGLE_CLASSROOM_UNAVAILABLE: 'Google Classroom no está disponible en este momento. Intenta de nuevo más tarde.',
   CNFT_NOT_ENABLED:
     'Los diplomas NFT requieren Solana y wallets cripto habilitadas en la institucion.',
   CNFT_TREE_NOT_CONFIGURED: 'El arbol de cNFT no esta configurado. Ejecuta node ace cnft:setup-tree.',

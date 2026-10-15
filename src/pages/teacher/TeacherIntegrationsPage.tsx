@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { HiArrowPath, HiLink, HiXMark } from 'react-icons/hi2'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api, ApiError, getApiErrorCode, getApiErrorMessage } from '../../api/client'
@@ -29,7 +29,7 @@ type ClassroomCourse = {
 }
 
 type ClassroomCourseWorkResponse = {
-  data: GoogleClassroomCourseWork[]
+  items: GoogleClassroomCourseWork[]
   nextPageToken: string | null
 }
 
@@ -51,7 +51,7 @@ export function TeacherIntegrationsPage() {
   const [connecting, setConnecting] = useState(false)
   const [nextPageToken, setNextPageToken] = useState<string | null>(null)
   const [pageTokenStack, setPageTokenStack] = useState<string[]>([])
-  const [currentRequestId, setCurrentRequestId] = useState<string | null>(null)
+  const currentRequestIdRef = useRef<string | null>(null)
   const [courseworkError, setCourseworkError] = useState<{
     message: string
     code: string | null
@@ -172,7 +172,7 @@ export function TeacherIntegrationsPage() {
   async function loadCoursework(courseId: string, pageToken: string | null) {
     if (!token) return
     const requestId = `${courseId}-${pageToken ?? 'initial'}-${Date.now()}`
-    setCurrentRequestId(requestId)
+    currentRequestIdRef.current = requestId
     setLoadingCourseWork(true)
     setCourseworkError(null)
     try {
@@ -185,7 +185,7 @@ export function TeacherIntegrationsPage() {
         { token }
       )
       
-      if (currentRequestId !== requestId) {
+      if (currentRequestIdRef.current !== requestId) {
         return
       }
       
@@ -193,11 +193,11 @@ export function TeacherIntegrationsPage() {
         setCourseWork(response)
         setNextPageToken(null)
       } else {
-        setCourseWork(Array.isArray(response.data) ? response.data : [])
+        setCourseWork(Array.isArray(response.items) ? response.items : [])
         setNextPageToken(response.nextPageToken ?? null)
       }
     } catch (e) {
-      if (currentRequestId !== requestId) {
+      if (currentRequestIdRef.current !== requestId) {
         return
       }
       
@@ -247,7 +247,7 @@ export function TeacherIntegrationsPage() {
       setCourseWork([])
       setNextPageToken(null)
     } finally {
-      if (currentRequestId === requestId) {
+      if (currentRequestIdRef.current === requestId) {
         setLoadingCourseWork(false)
       }
     }
@@ -507,6 +507,7 @@ export function TeacherIntegrationsPage() {
                 onSelectedIdsChange={handleSelectedIdsChange}
                 hasNextPage={nextPageToken != null}
                 hasPrevPage={pageTokenStack.length > 0}
+                pageNumber={pageTokenStack.length + 1}
                 onNextPage={handleNextPage}
                 onPrevPage={handlePrevPage}
               />
