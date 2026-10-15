@@ -268,7 +268,7 @@ export function TeacherIntegrationsPage() {
     void loadCoursework(selectedCourseId, prevToken)
   }
 
-  async function runImport(form: HTMLFormElement, mode: 'selected') {
+  async function runImport(form: HTMLFormElement) {
     if (!token || !selectedCourseId) return
 
     const course = courses.find((c) => c.id === selectedCourseId)
@@ -361,7 +361,7 @@ export function TeacherIntegrationsPage() {
 
   function onImportSelected(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    void runImport(e.currentTarget, 'selected')
+    void runImport(e.currentTarget)
   }
 
   function handleSelectedIdsChange(ids: string[]) {
