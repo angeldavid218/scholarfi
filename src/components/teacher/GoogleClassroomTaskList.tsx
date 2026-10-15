@@ -16,6 +16,10 @@ type GoogleClassroomTaskListProps = {
   tasks: GoogleClassroomCourseWork[]
   selectedIds: string[]
   onSelectedIdsChange: (ids: string[]) => void
+  hasNextPage?: boolean
+  hasPrevPage?: boolean
+  onNextPage?: () => void
+  onPrevPage?: () => void
 }
 
 export function GoogleClassroomTaskList({
@@ -24,8 +28,13 @@ export function GoogleClassroomTaskList({
   tasks,
   selectedIds,
   onSelectedIdsChange,
+  hasNextPage = false,
+  hasPrevPage = false,
+  onNextPage,
+  onPrevPage,
 }: GoogleClassroomTaskListProps) {
   const allSelected = tasks.length > 0 && selectedIds.length === tasks.length
+  const showPagination = (hasNextPage || hasPrevPage) && (onNextPage || onPrevPage)
 
   function toggleTask(taskId: string) {
     onSelectedIdsChange(
@@ -113,6 +122,29 @@ export function GoogleClassroomTaskList({
               )
             })}
           </ul>
+          {showPagination ? (
+            <div className="flex items-center justify-between gap-2 border-t border-base-300 bg-base-200/50 px-3 py-2">
+              <button
+                type="button"
+                className="btn btn-outline btn-xs"
+                onClick={onPrevPage}
+                disabled={!hasPrevPage || loading}
+              >
+                Anterior
+              </button>
+              <span className="text-xs text-base-content/60">
+                {selectedIds.length > 0 ? `${selectedIds.length} seleccionada(s)` : 'Más tareas disponibles'}
+              </span>
+              <button
+                type="button"
+                className="btn btn-outline btn-xs"
+                onClick={onNextPage}
+                disabled={!hasNextPage || loading}
+              >
+                Siguiente
+              </button>
+            </div>
+          ) : null}
         </div>
       )}
     </div>

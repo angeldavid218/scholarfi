@@ -28,6 +28,11 @@ type ClassroomCourse = {
   courseState: string | null
 }
 
+type ClassroomCourseWorkResponse = {
+  data: GoogleClassroomCourseWork[]
+  nextPageToken: string | null
+}
+
 export function TeacherIntegrationsPage() {
   const { token } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -43,6 +48,10 @@ export function TeacherIntegrationsPage() {
   const [error, setError] = useState<string | null>(null)
   const [importMsg, setImportMsg] = useState<string | null>(null)
   const [connecting, setConnecting] = useState(false)
+  const [nextPageToken, setNextPageToken] = useState<string | null>(null)
+  const [pageTokenStack, setPageTokenStack] = useState<string[]>([])
+
+  const PAGE_SIZE = 15
 
   const oauthConnected = searchParams.get('connected')
   const oauthError = searchParams.get('error')
@@ -142,15 +151,33 @@ export function TeacherIntegrationsPage() {
     setSelectedCourseWorkIds([])
     setCourseWork([])
     setImportMsg(null)
+    setNextPageToken(null)
+    setPageTokenStack([])
     if (!token || !courseId) return
 
+    await loadCoursework(courseId, null)
+  }
+
+  async function loadCoursework(courseId: string, pageToken: string | null) {
+    if (!token) return
     setLoadingCourseWork(true)
     try {
-      const rows = await api.get<GoogleClassroomCourseWork[]>(
-        `/integrations/google-classroom/courses/${encodeURIComponent(courseId)}/coursework`,
+      const params = new URLSearchParams()
+      params.set('pageSize', String(PAGE_SIZE))
+      if (pageToken) params.set('pageToken', pageToken)
+      
+      const response = await api.get<ClassroomCourseWorkResponse | GoogleClassroomCourseWork[]>(
+        `/integrations/google-classroom/courses/${encodeURIComponent(courseId)}/coursework?${params}`,
         { token }
       )
-      setCourseWork(Array.isArray(rows) ? rows : [])
+      
+      if (Array.isArray(response)) {
+        setCourseWork(response)
+        setNextPageToken(null)
+      } else {
+        setCourseWork(Array.isArray(response.data) ? response.data : [])
+        setNextPageToken(response.nextPageToken ?? null)
+      }
     } catch (e) {
       setImportMsg(
         e instanceof ApiError ? getApiErrorMessage(e.body) : 'No se pudo cargar las tareas'
@@ -158,6 +185,21 @@ export function TeacherIntegrationsPage() {
     } finally {
       setLoadingCourseWork(false)
     }
+  }
+
+  function handleNextPage() {
+    if (!nextPageToken || !selectedCourseId) return
+    setPageTokenStack((prev) => [...prev, nextPageToken])
+    void loadCoursework(selectedCourseId, nextPageToken)
+  }
+
+  function handlePrevPage() {
+    if (pageTokenStack.length === 0 || !selectedCourseId) return
+    const newStack = [...pageTokenStack]
+    newStack.pop()
+    setPageTokenStack(newStack)
+    const prevToken = newStack[newStack.length - 1] ?? null
+    void loadCoursework(selectedCourseId, prevToken)
   }
 
   async function runImport(form: HTMLFormElement, mode: 'selected' | 'all') {
@@ -378,6 +420,10 @@ export function TeacherIntegrationsPage() {
                 tasks={courseWork}
                 selectedIds={selectedCourseWorkIds}
                 onSelectedIdsChange={setSelectedCourseWorkIds}
+                hasNextPage={nextPageToken != null}
+                hasPrevPage={pageTokenStack.length > 0}
+                onNextPage={handleNextPage}
+                onPrevPage={handlePrevPage}
               />
 
               {selectedWorks.length === 1 && selectedWorks[0]?.description ? (
