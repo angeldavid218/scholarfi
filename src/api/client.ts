@@ -38,6 +38,14 @@ export function getApiErrorMessage(body: unknown): string {
   return 'No se pudo completar la solicitud.'
 }
 
+export function getApiErrorCode(body: unknown): string | null {
+  if (body && typeof body === 'object' && 'error' in body) {
+    const err = (body as { error?: { code?: string } }).error
+    return err?.code ?? null
+  }
+  return null
+}
+
 async function parseJsonResponse(res: Response): Promise<unknown> {
   const text = await res.text()
   if (!text) return null

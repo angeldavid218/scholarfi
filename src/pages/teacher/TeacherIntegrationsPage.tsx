@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { HiArrowPath, HiLink, HiXMark } from 'react-icons/hi2'
 import { Link, useSearchParams } from 'react-router-dom'
-import { api, ApiError, getApiErrorMessage } from '../../api/client'
+import { api, ApiError, getApiErrorCode, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
 import {
   GoogleClassroomTaskList,
@@ -50,6 +50,11 @@ export function TeacherIntegrationsPage() {
   const [connecting, setConnecting] = useState(false)
   const [nextPageToken, setNextPageToken] = useState<string | null>(null)
   const [pageTokenStack, setPageTokenStack] = useState<string[]>([])
+  const [courseworkError, setCourseworkError] = useState<{
+    message: string
+    code: string | null
+    canRetry: boolean
+  } | null>(null)
 
   const PAGE_SIZE = 15
 
@@ -151,6 +156,7 @@ export function TeacherIntegrationsPage() {
     setSelectedCourseWorkIds([])
     setCourseWork([])
     setImportMsg(null)
+    setCourseworkError(null)
     setNextPageToken(null)
     setPageTokenStack([])
     if (!token || !courseId) return
@@ -161,6 +167,7 @@ export function TeacherIntegrationsPage() {
   async function loadCoursework(courseId: string, pageToken: string | null) {
     if (!token) return
     setLoadingCourseWork(true)
+    setCourseworkError(null)
     try {
       const params = new URLSearchParams()
       params.set('pageSize', String(PAGE_SIZE))
@@ -179,9 +186,43 @@ export function TeacherIntegrationsPage() {
         setNextPageToken(response.nextPageToken ?? null)
       }
     } catch (e) {
-      setImportMsg(
-        e instanceof ApiError ? getApiErrorMessage(e.body) : 'No se pudo cargar las tareas'
-      )
+      if (e instanceof ApiError) {
+        const errorCode = getApiErrorCode(e.body)
+        const errorMessage = getApiErrorMessage(e.body)
+        
+        if (errorCode === 'GOOGLE_TOKEN_EXPIRED') {
+          setCourseworkError({
+            message: errorMessage,
+            code: errorCode,
+            canRetry: false,
+          })
+        } else if (errorCode === 'GOOGLE_CLASSROOM_QUOTA_EXCEEDED' || errorCode === 'GOOGLE_CLASSROOM_RATE_LIMITED') {
+          setCourseworkError({
+            message: errorMessage,
+            code: errorCode,
+            canRetry: true,
+          })
+        } else if (errorCode === 'INVALID_PAGE_TOKEN') {
+          setNextPageToken(null)
+          setPageTokenStack([])
+          await loadCoursework(courseId, null)
+          return
+        } else {
+          setCourseworkError({
+            message: errorMessage,
+            code: errorCode,
+            canRetry: true,
+          })
+        }
+      } else {
+        setCourseworkError({
+          message: 'No se pudo cargar las tareas',
+          code: null,
+          canRetry: true,
+        })
+      }
+      setCourseWork([])
+      setNextPageToken(null)
     } finally {
       setLoadingCourseWork(false)
     }
@@ -425,6 +466,28 @@ export function TeacherIntegrationsPage() {
                 onNextPage={handleNextPage}
                 onPrevPage={handlePrevPage}
               />
+
+              {courseworkError ? (
+                <div className="alert alert-warning text-sm">
+                  <div className="flex-1">
+                    <p>{courseworkError.message}</p>
+                    {courseworkError.code === 'GOOGLE_TOKEN_EXPIRED' ? (
+                      <p className="mt-1 text-xs">
+                        Usa el boton "Desconectar" arriba, luego reconecta tu cuenta de Google Classroom.
+                      </p>
+                    ) : null}
+                  </div>
+                  {courseworkError.canRetry ? (
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      onClick={() => selectedCourseId && void loadCoursework(selectedCourseId, pageTokenStack[pageTokenStack.length - 1] ?? null)}
+                    >
+                      Reintentar
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
 
               {selectedWorks.length === 1 && selectedWorks[0]?.description ? (
                 <p className="text-sm text-base-content/70">{selectedWorks[0].description}</p>

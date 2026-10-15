@@ -90,6 +90,11 @@ const API_ERROR_CODE_MESSAGES: Record<string, string> = {
   CURRENT_PASSWORD_INVALID: 'La contrasena actual es incorrecta.',
   GOOGLE_CLASSROOM_NOT_CONNECTED: 'Conecta Google Classroom antes de continuar.',
   CLASSROOM_STUDENT_SYNC_FAILED: 'No se pudo sincronizar estudiantes de Classroom.',
+  GOOGLE_TOKEN_EXPIRED: 'Tu sesion de Google Classroom expiro. Vuelve a conectar tu cuenta.',
+  GOOGLE_CLASSROOM_QUOTA_EXCEEDED: 'Limite de Google Classroom alcanzado. Intenta de nuevo en un momento.',
+  GOOGLE_CLASSROOM_RATE_LIMITED: 'Demasiadas solicitudes a Google Classroom. Intenta de nuevo en un momento.',
+  INVALID_PAGE_TOKEN: 'Token de paginacion invalido.',
+  CLASSROOM_COURSEWORK_LIST_FAILED: 'No se pudo cargar las tareas de Classroom.',
   CNFT_NOT_ENABLED:
     'Los diplomas NFT requieren Solana y wallets cripto habilitadas en la institucion.',
   CNFT_TREE_NOT_CONFIGURED: 'El arbol de cNFT no esta configurado. Ejecuta node ace cnft:setup-tree.',
