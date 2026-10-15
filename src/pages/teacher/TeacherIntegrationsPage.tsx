@@ -41,6 +41,7 @@ export function TeacherIntegrationsPage() {
   const [courseWork, setCourseWork] = useState<GoogleClassroomCourseWork[]>([])
   const [selectedCourseId, setSelectedCourseId] = useState('')
   const [selectedCourseWorkIds, setSelectedCourseWorkIds] = useState<string[]>([])
+  const [selectedCourseWorkMap, setSelectedCourseWorkMap] = useState<Map<string, GoogleClassroomCourseWork>>(new Map())
   const [loading, setLoading] = useState(true)
   const [loadingCourseWork, setLoadingCourseWork] = useState(false)
   const [importing, setImporting] = useState(false)
@@ -50,6 +51,7 @@ export function TeacherIntegrationsPage() {
   const [connecting, setConnecting] = useState(false)
   const [nextPageToken, setNextPageToken] = useState<string | null>(null)
   const [pageTokenStack, setPageTokenStack] = useState<string[]>([])
+  const [currentRequestId, setCurrentRequestId] = useState<string | null>(null)
   const [courseworkError, setCourseworkError] = useState<{
     message: string
     code: string | null
@@ -62,8 +64,8 @@ export function TeacherIntegrationsPage() {
   const oauthError = searchParams.get('error')
 
   const selectedWorks = useMemo(
-    () => courseWork.filter((work) => selectedCourseWorkIds.includes(work.id)),
-    [courseWork, selectedCourseWorkIds]
+    () => Array.from(selectedCourseWorkMap.values()),
+    [selectedCourseWorkMap]
   )
 
   const loadStatus = useCallback(async () => {
@@ -81,6 +83,7 @@ export function TeacherIntegrationsPage() {
         setCourses([])
         setCourseWork([])
         setSelectedCourseWorkIds([])
+        setSelectedCourseWorkMap(new Map())
       }
     } catch (e) {
       setError(e instanceof ApiError ? getApiErrorMessage(e.body) : 'Error al cargar integracion')
@@ -141,6 +144,7 @@ export function TeacherIntegrationsPage() {
       await api.delete('/integrations/google-classroom/disconnect', { token })
       setSelectedCourseId('')
       setSelectedCourseWorkIds([])
+      setSelectedCourseWorkMap(new Map())
       setCourseWork([])
       await loadStatus()
       setActionMsg('Google Classroom desconectado.')
@@ -154,6 +158,7 @@ export function TeacherIntegrationsPage() {
   async function onCourseChange(courseId: string) {
     setSelectedCourseId(courseId)
     setSelectedCourseWorkIds([])
+    setSelectedCourseWorkMap(new Map())
     setCourseWork([])
     setImportMsg(null)
     setCourseworkError(null)
@@ -166,6 +171,8 @@ export function TeacherIntegrationsPage() {
 
   async function loadCoursework(courseId: string, pageToken: string | null) {
     if (!token) return
+    const requestId = `${courseId}-${pageToken ?? 'initial'}-${Date.now()}`
+    setCurrentRequestId(requestId)
     setLoadingCourseWork(true)
     setCourseworkError(null)
     try {
@@ -178,6 +185,10 @@ export function TeacherIntegrationsPage() {
         { token }
       )
       
+      if (currentRequestId !== requestId) {
+        return
+      }
+      
       if (Array.isArray(response)) {
         setCourseWork(response)
         setNextPageToken(null)
@@ -186,6 +197,10 @@ export function TeacherIntegrationsPage() {
         setNextPageToken(response.nextPageToken ?? null)
       }
     } catch (e) {
+      if (currentRequestId !== requestId) {
+        return
+      }
+      
       if (e instanceof ApiError) {
         const errorCode = getApiErrorCode(e.body)
         const errorMessage = getApiErrorMessage(e.body)
@@ -203,10 +218,18 @@ export function TeacherIntegrationsPage() {
             canRetry: true,
           })
         } else if (errorCode === 'INVALID_PAGE_TOKEN') {
-          setNextPageToken(null)
-          setPageTokenStack([])
-          await loadCoursework(courseId, null)
-          return
+          if (pageToken !== null) {
+            setNextPageToken(null)
+            setPageTokenStack([])
+            await loadCoursework(courseId, null)
+            return
+          } else {
+            setCourseworkError({
+              message: errorMessage,
+              code: errorCode,
+              canRetry: true,
+            })
+          }
         } else {
           setCourseworkError({
             message: errorMessage,
@@ -216,7 +239,7 @@ export function TeacherIntegrationsPage() {
         }
       } else {
         setCourseworkError({
-          message: 'No se pudo cargar las tareas',
+          message: 'No se pudieron cargar las tareas',
           code: null,
           canRetry: true,
         })
@@ -224,7 +247,9 @@ export function TeacherIntegrationsPage() {
       setCourseWork([])
       setNextPageToken(null)
     } finally {
-      setLoadingCourseWork(false)
+      if (currentRequestId === requestId) {
+        setLoadingCourseWork(false)
+      }
     }
   }
 
@@ -243,14 +268,13 @@ export function TeacherIntegrationsPage() {
     void loadCoursework(selectedCourseId, prevToken)
   }
 
-  async function runImport(form: HTMLFormElement, mode: 'selected' | 'all') {
+  async function runImport(form: HTMLFormElement, mode: 'selected') {
     if (!token || !selectedCourseId) return
 
     const course = courses.find((c) => c.id === selectedCourseId)
     if (!course) return
 
-    const worksToImport =
-      mode === 'all' ? courseWork : courseWork.filter((w) => selectedCourseWorkIds.includes(w.id))
+    const worksToImport = Array.from(selectedCourseWorkMap.values())
     if (worksToImport.length === 0) return
 
     setImportMsg(null)
@@ -328,6 +352,7 @@ export function TeacherIntegrationsPage() {
 
       if (imported > 0 || skipped > 0) {
         setSelectedCourseWorkIds([])
+        setSelectedCourseWorkMap(new Map())
       }
     } finally {
       setImporting(false)
@@ -337,6 +362,24 @@ export function TeacherIntegrationsPage() {
   function onImportSelected(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     void runImport(e.currentTarget, 'selected')
+  }
+
+  function handleSelectedIdsChange(ids: string[]) {
+    setSelectedCourseWorkIds(ids)
+    const newMap = new Map<string, GoogleClassroomCourseWork>()
+    
+    for (const id of ids) {
+      if (selectedCourseWorkMap.has(id)) {
+        newMap.set(id, selectedCourseWorkMap.get(id)!)
+      } else {
+        const work = courseWork.find(w => w.id === id)
+        if (work) {
+          newMap.set(id, work)
+        }
+      }
+    }
+    
+    setSelectedCourseWorkMap(newMap)
   }
 
   if (loading) return <PageSpinner />
@@ -357,6 +400,7 @@ export function TeacherIntegrationsPage() {
       {actionMsg && (
         <div
           role="status"
+          aria-live="polite"
           className={
             actionMsg.includes('correctamente') || actionMsg.includes('desconectado')
               ? 'alert alert-success text-sm'
@@ -460,7 +504,7 @@ export function TeacherIntegrationsPage() {
                 loading={loadingCourseWork}
                 tasks={courseWork}
                 selectedIds={selectedCourseWorkIds}
-                onSelectedIdsChange={setSelectedCourseWorkIds}
+                onSelectedIdsChange={handleSelectedIdsChange}
                 hasNextPage={nextPageToken != null}
                 hasPrevPage={pageTokenStack.length > 0}
                 onNextPage={handleNextPage}
@@ -531,6 +575,7 @@ export function TeacherIntegrationsPage() {
               {importMsg && (
                 <div
                   role="status"
+                  aria-live="polite"
                   className={
                     importMsg.includes('importada') || importMsg.includes('importadas')
                       ? 'alert alert-success text-sm'
@@ -552,20 +597,6 @@ export function TeacherIntegrationsPage() {
                   ) : null}
                   Importar seleccionadas
                   {selectedCourseWorkIds.length > 0 ? ` (${selectedCourseWorkIds.length})` : ''}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-outline"
-                  disabled={importing || !selectedCourseId || courseWork.length === 0}
-                  onClick={(e) => {
-                    const form = e.currentTarget.form
-                    if (!form) return
-                    if (!form.reportValidity()) return
-                    void runImport(form, 'all')
-                  }}
-                >
-                  Importar todas
-                  {courseWork.length > 0 ? ` (${courseWork.length})` : ''}
                 </button>
                 <Link to="/teacher" className="btn btn-ghost">
                   Ir a mis tareas

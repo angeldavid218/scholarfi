@@ -33,8 +33,9 @@ export function GoogleClassroomTaskList({
   onNextPage,
   onPrevPage,
 }: GoogleClassroomTaskListProps) {
-  const allSelected = tasks.length > 0 && selectedIds.length === tasks.length
+  const allSelected = tasks.length > 0 && tasks.every((task) => selectedIds.includes(task.id))
   const showPagination = (hasNextPage || hasPrevPage) && (onNextPage || onPrevPage)
+  const pageNumber = hasPrevPage ? '2+' : '1'
 
   function toggleTask(taskId: string) {
     onSelectedIdsChange(
@@ -45,7 +46,17 @@ export function GoogleClassroomTaskList({
   }
 
   function toggleSelectAll() {
-    onSelectedIdsChange(allSelected ? [] : tasks.map((task) => task.id))
+    if (allSelected) {
+      onSelectedIdsChange(selectedIds.filter(id => !tasks.some(task => task.id === id)))
+    } else {
+      const newIds = [...selectedIds]
+      for (const task of tasks) {
+        if (!newIds.includes(task.id)) {
+          newIds.push(task.id)
+        }
+      }
+      onSelectedIdsChange(newIds)
+    }
   }
 
   return (
@@ -80,9 +91,9 @@ export function GoogleClassroomTaskList({
                 className="checkbox checkbox-sm checkbox-primary"
                 checked={allSelected}
                 onChange={toggleSelectAll}
-                aria-label="Seleccionar todas las tareas"
+                aria-label="Seleccionar todas las tareas de esta página"
               />
-              Seleccionar todas
+              Seleccionar esta página
             </label>
           </div>
           <ul
@@ -123,27 +134,34 @@ export function GoogleClassroomTaskList({
             })}
           </ul>
           {showPagination ? (
-            <div className="flex items-center justify-between gap-2 border-t border-base-300 bg-base-200/50 px-3 py-2">
+            <nav
+              className="flex items-center justify-between gap-2 border-t border-base-300 bg-base-200/50 px-3 py-2"
+              aria-label="Paginación de tareas"
+            >
               <button
                 type="button"
                 className="btn btn-outline btn-xs"
                 onClick={onPrevPage}
                 disabled={!hasPrevPage || loading}
+                aria-label="Página anterior"
               >
                 Anterior
               </button>
-              <span className="text-xs text-base-content/60">
-                {selectedIds.length > 0 ? `${selectedIds.length} seleccionada(s)` : 'Más tareas disponibles'}
+              <span className="text-xs text-base-content/60" role="status" aria-live="polite">
+                {selectedIds.length > 0 && `${selectedIds.length} seleccionada(s) · `}
+                Página {pageNumber}
+                {hasNextPage ? '' : ' (última)'}
               </span>
               <button
                 type="button"
                 className="btn btn-outline btn-xs"
                 onClick={onNextPage}
                 disabled={!hasNextPage || loading}
+                aria-label="Página siguiente"
               >
                 Siguiente
               </button>
-            </div>
+            </nav>
           ) : null}
         </div>
       )}
