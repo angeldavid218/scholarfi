@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { HiArrowPath, HiLink, HiXMark } from 'react-icons/hi2'
 import { Link, useSearchParams } from 'react-router-dom'
-import { api, ApiError, getApiErrorMessage } from '../../api/client'
+import { api, ApiError, getApiErrorCode, getApiErrorMessage } from '../../api/client'
 import { useAuth } from '../../auth/AuthContext'
 import {
   GoogleClassroomTaskList,
@@ -28,6 +28,11 @@ type ClassroomCourse = {
   courseState: string | null
 }
 
+type ClassroomCourseWorkResponse = {
+  items: GoogleClassroomCourseWork[]
+  nextPageToken: string | null
+}
+
 export function TeacherIntegrationsPage() {
   const { token } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -36,6 +41,7 @@ export function TeacherIntegrationsPage() {
   const [courseWork, setCourseWork] = useState<GoogleClassroomCourseWork[]>([])
   const [selectedCourseId, setSelectedCourseId] = useState('')
   const [selectedCourseWorkIds, setSelectedCourseWorkIds] = useState<string[]>([])
+  const [selectedCourseWorkMap, setSelectedCourseWorkMap] = useState<Map<string, GoogleClassroomCourseWork>>(new Map())
   const [loading, setLoading] = useState(true)
   const [loadingCourseWork, setLoadingCourseWork] = useState(false)
   const [importing, setImporting] = useState(false)
@@ -43,13 +49,23 @@ export function TeacherIntegrationsPage() {
   const [error, setError] = useState<string | null>(null)
   const [importMsg, setImportMsg] = useState<string | null>(null)
   const [connecting, setConnecting] = useState(false)
+  const [nextPageToken, setNextPageToken] = useState<string | null>(null)
+  const [pageTokenStack, setPageTokenStack] = useState<string[]>([])
+  const currentRequestIdRef = useRef<string | null>(null)
+  const [courseworkError, setCourseworkError] = useState<{
+    message: string
+    code: string | null
+    canRetry: boolean
+  } | null>(null)
+
+  const PAGE_SIZE = 15
 
   const oauthConnected = searchParams.get('connected')
   const oauthError = searchParams.get('error')
 
   const selectedWorks = useMemo(
-    () => courseWork.filter((work) => selectedCourseWorkIds.includes(work.id)),
-    [courseWork, selectedCourseWorkIds]
+    () => Array.from(selectedCourseWorkMap.values()),
+    [selectedCourseWorkMap]
   )
 
   const loadStatus = useCallback(async () => {
@@ -67,6 +83,7 @@ export function TeacherIntegrationsPage() {
         setCourses([])
         setCourseWork([])
         setSelectedCourseWorkIds([])
+        setSelectedCourseWorkMap(new Map())
       }
     } catch (e) {
       setError(e instanceof ApiError ? getApiErrorMessage(e.body) : 'Error al cargar integracion')
@@ -127,6 +144,7 @@ export function TeacherIntegrationsPage() {
       await api.delete('/integrations/google-classroom/disconnect', { token })
       setSelectedCourseId('')
       setSelectedCourseWorkIds([])
+      setSelectedCourseWorkMap(new Map())
       setCourseWork([])
       await loadStatus()
       setActionMsg('Google Classroom desconectado.')
@@ -140,34 +158,123 @@ export function TeacherIntegrationsPage() {
   async function onCourseChange(courseId: string) {
     setSelectedCourseId(courseId)
     setSelectedCourseWorkIds([])
+    setSelectedCourseWorkMap(new Map())
     setCourseWork([])
     setImportMsg(null)
+    setCourseworkError(null)
+    setNextPageToken(null)
+    setPageTokenStack([])
     if (!token || !courseId) return
 
+    await loadCoursework(courseId, null)
+  }
+
+  async function loadCoursework(courseId: string, pageToken: string | null) {
+    if (!token) return
+    const requestId = `${courseId}-${pageToken ?? 'initial'}-${Date.now()}`
+    currentRequestIdRef.current = requestId
     setLoadingCourseWork(true)
+    setCourseworkError(null)
     try {
-      const rows = await api.get<GoogleClassroomCourseWork[]>(
-        `/integrations/google-classroom/courses/${encodeURIComponent(courseId)}/coursework`,
+      const params = new URLSearchParams()
+      params.set('pageSize', String(PAGE_SIZE))
+      if (pageToken) params.set('pageToken', pageToken)
+      
+      const response = await api.get<ClassroomCourseWorkResponse | GoogleClassroomCourseWork[]>(
+        `/integrations/google-classroom/courses/${encodeURIComponent(courseId)}/coursework?${params}`,
         { token }
       )
-      setCourseWork(Array.isArray(rows) ? rows : [])
+      
+      if (currentRequestIdRef.current !== requestId) {
+        return
+      }
+      
+      if (Array.isArray(response)) {
+        setCourseWork(response)
+        setNextPageToken(null)
+      } else {
+        setCourseWork(Array.isArray(response.items) ? response.items : [])
+        setNextPageToken(response.nextPageToken ?? null)
+      }
     } catch (e) {
-      setImportMsg(
-        e instanceof ApiError ? getApiErrorMessage(e.body) : 'No se pudo cargar las tareas'
-      )
+      if (currentRequestIdRef.current !== requestId) {
+        return
+      }
+      
+      if (e instanceof ApiError) {
+        const errorCode = getApiErrorCode(e.body)
+        const errorMessage = getApiErrorMessage(e.body)
+        
+        if (errorCode === 'GOOGLE_TOKEN_EXPIRED') {
+          setCourseworkError({
+            message: errorMessage,
+            code: errorCode,
+            canRetry: false,
+          })
+        } else if (errorCode === 'GOOGLE_CLASSROOM_QUOTA_EXCEEDED' || errorCode === 'GOOGLE_CLASSROOM_RATE_LIMITED') {
+          setCourseworkError({
+            message: errorMessage,
+            code: errorCode,
+            canRetry: true,
+          })
+        } else if (errorCode === 'INVALID_PAGE_TOKEN') {
+          if (pageToken !== null) {
+            setNextPageToken(null)
+            setPageTokenStack([])
+            await loadCoursework(courseId, null)
+            return
+          } else {
+            setCourseworkError({
+              message: errorMessage,
+              code: errorCode,
+              canRetry: true,
+            })
+          }
+        } else {
+          setCourseworkError({
+            message: errorMessage,
+            code: errorCode,
+            canRetry: true,
+          })
+        }
+      } else {
+        setCourseworkError({
+          message: 'No se pudieron cargar las tareas',
+          code: null,
+          canRetry: true,
+        })
+      }
+      setCourseWork([])
+      setNextPageToken(null)
     } finally {
-      setLoadingCourseWork(false)
+      if (currentRequestIdRef.current === requestId) {
+        setLoadingCourseWork(false)
+      }
     }
   }
 
-  async function runImport(form: HTMLFormElement, mode: 'selected' | 'all') {
+  function handleNextPage() {
+    if (!nextPageToken || !selectedCourseId) return
+    setPageTokenStack((prev) => [...prev, nextPageToken])
+    void loadCoursework(selectedCourseId, nextPageToken)
+  }
+
+  function handlePrevPage() {
+    if (pageTokenStack.length === 0 || !selectedCourseId) return
+    const newStack = [...pageTokenStack]
+    newStack.pop()
+    setPageTokenStack(newStack)
+    const prevToken = newStack[newStack.length - 1] ?? null
+    void loadCoursework(selectedCourseId, prevToken)
+  }
+
+  async function runImport(form: HTMLFormElement) {
     if (!token || !selectedCourseId) return
 
     const course = courses.find((c) => c.id === selectedCourseId)
     if (!course) return
 
-    const worksToImport =
-      mode === 'all' ? courseWork : courseWork.filter((w) => selectedCourseWorkIds.includes(w.id))
+    const worksToImport = Array.from(selectedCourseWorkMap.values())
     if (worksToImport.length === 0) return
 
     setImportMsg(null)
@@ -245,6 +352,7 @@ export function TeacherIntegrationsPage() {
 
       if (imported > 0 || skipped > 0) {
         setSelectedCourseWorkIds([])
+        setSelectedCourseWorkMap(new Map())
       }
     } finally {
       setImporting(false)
@@ -253,7 +361,25 @@ export function TeacherIntegrationsPage() {
 
   function onImportSelected(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    void runImport(e.currentTarget, 'selected')
+    void runImport(e.currentTarget)
+  }
+
+  function handleSelectedIdsChange(ids: string[]) {
+    setSelectedCourseWorkIds(ids)
+    const newMap = new Map<string, GoogleClassroomCourseWork>()
+    
+    for (const id of ids) {
+      if (selectedCourseWorkMap.has(id)) {
+        newMap.set(id, selectedCourseWorkMap.get(id)!)
+      } else {
+        const work = courseWork.find(w => w.id === id)
+        if (work) {
+          newMap.set(id, work)
+        }
+      }
+    }
+    
+    setSelectedCourseWorkMap(newMap)
   }
 
   if (loading) return <PageSpinner />
@@ -274,6 +400,7 @@ export function TeacherIntegrationsPage() {
       {actionMsg && (
         <div
           role="status"
+          aria-live="polite"
           className={
             actionMsg.includes('correctamente') || actionMsg.includes('desconectado')
               ? 'alert alert-success text-sm'
@@ -377,8 +504,35 @@ export function TeacherIntegrationsPage() {
                 loading={loadingCourseWork}
                 tasks={courseWork}
                 selectedIds={selectedCourseWorkIds}
-                onSelectedIdsChange={setSelectedCourseWorkIds}
+                onSelectedIdsChange={handleSelectedIdsChange}
+                hasNextPage={nextPageToken != null}
+                hasPrevPage={pageTokenStack.length > 0}
+                pageNumber={pageTokenStack.length + 1}
+                onNextPage={handleNextPage}
+                onPrevPage={handlePrevPage}
               />
+
+              {courseworkError ? (
+                <div className="alert alert-warning text-sm">
+                  <div className="flex-1">
+                    <p>{courseworkError.message}</p>
+                    {courseworkError.code === 'GOOGLE_TOKEN_EXPIRED' ? (
+                      <p className="mt-1 text-xs">
+                        Usa el boton "Desconectar" arriba, luego reconecta tu cuenta de Google Classroom.
+                      </p>
+                    ) : null}
+                  </div>
+                  {courseworkError.canRetry ? (
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      onClick={() => selectedCourseId && void loadCoursework(selectedCourseId, pageTokenStack[pageTokenStack.length - 1] ?? null)}
+                    >
+                      Reintentar
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
 
               {selectedWorks.length === 1 && selectedWorks[0]?.description ? (
                 <p className="text-sm text-base-content/70">{selectedWorks[0].description}</p>
@@ -422,6 +576,7 @@ export function TeacherIntegrationsPage() {
               {importMsg && (
                 <div
                   role="status"
+                  aria-live="polite"
                   className={
                     importMsg.includes('importada') || importMsg.includes('importadas')
                       ? 'alert alert-success text-sm'
@@ -443,20 +598,6 @@ export function TeacherIntegrationsPage() {
                   ) : null}
                   Importar seleccionadas
                   {selectedCourseWorkIds.length > 0 ? ` (${selectedCourseWorkIds.length})` : ''}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-outline"
-                  disabled={importing || !selectedCourseId || courseWork.length === 0}
-                  onClick={(e) => {
-                    const form = e.currentTarget.form
-                    if (!form) return
-                    if (!form.reportValidity()) return
-                    void runImport(form, 'all')
-                  }}
-                >
-                  Importar todas
-                  {courseWork.length > 0 ? ` (${courseWork.length})` : ''}
                 </button>
                 <Link to="/teacher" className="btn btn-ghost">
                   Ir a mis tareas
