@@ -76,7 +76,7 @@ export const useClassroomSync = ({ onSynced }: UseClassroomSyncOptions) => {
       if (run.status === 'completed' || run.status === 'failed') return run
       await sleep(SYNC_POLL_MS)
     }
-    throw new Error('La sincronizacion tardo demasiado. Revisa el worker (`npm run queue:work`).')
+    throw new Error('La sincronizacion tardo demasiado. Intenta de nuevo en unos minutos.')
   }
 
   const postClassroomSync = async (id: number): Promise<ClassroomSyncResult> => {
