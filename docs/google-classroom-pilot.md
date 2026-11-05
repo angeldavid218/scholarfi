@@ -2,6 +2,8 @@
 
 Use this list before testing the connector in a real school environment.
 
+For a live school session (about two teachers and thirty students), use [pilot-preflight-checklist.md](./pilot-preflight-checklist.md). This page is the connector and local mock sandbox.
+
 ## GCP and backend
 
 Follow [scholarfi-back/docs/google-classroom-setup.md](../../scholarfi-back/docs/google-classroom-setup.md):

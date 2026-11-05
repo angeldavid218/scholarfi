@@ -3,6 +3,7 @@ import {
   HiAcademicCap,
   HiBanknotes,
   HiBuildingOffice2,
+  HiChartBar,
   HiCheckBadge,
   HiClipboardDocumentCheck,
   HiClipboardDocumentList,
@@ -38,6 +39,7 @@ export const buildPanelNavItems = (roles: string[], classroomDemoNav: boolean): 
             label: classroomDemoNav ? 'Classroom (demo)' : 'Google Classroom',
             Icon: HiLink,
           },
+          { to: '/teacher/progreso', label: 'Progreso', Icon: HiChartBar },
         ] as NavItem[])
       : []),
     ...(roles.includes('school_admin')
@@ -47,6 +49,7 @@ export const buildPanelNavItems = (roles: string[], classroomDemoNav: boolean): 
           { to: '/admin/recompensas-internas', label: 'Recompensas internas', Icon: HiGift },
           { to: '/admin/cola-aprobacion', label: 'Cola de aprobacion', Icon: HiClipboardDocumentCheck },
           { to: '/admin/diploma', label: 'Reconocimiento académico', Icon: HiAcademicCap },
+          { to: '/admin/progreso', label: 'Progreso', Icon: HiChartBar },
           { to: '/admin/attestaciones', label: 'Attestaciones SAS', Icon: HiCheckBadge },
         ] as NavItem[])
       : []),

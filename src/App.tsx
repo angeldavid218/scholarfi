@@ -6,6 +6,7 @@ import { AdminAttestationsPage } from './pages/admin/AdminAttestationsPage'
 import { AdminApprovalQueuePage } from './pages/admin/AdminApprovalQueuePage'
 import { AdminBitacoraAprobacionPage } from './pages/admin/AdminBitacoraAprobacionPage'
 import { AdminDiplomaPage } from './pages/admin/AdminDiplomaPage'
+import { AdminGradeProgressPage } from './pages/admin/AdminGradeProgressPage'
 import { AdminHome } from './pages/admin/AdminHome'
 import { AdminInternalRewardsPage } from './pages/admin/AdminInternalRewardsPage'
 import { AdminTeacherBudgetPage } from './pages/admin/AdminTeacherBudgetPage'
@@ -22,6 +23,7 @@ import { SuperHome } from './pages/super/SuperHome'
 import { TeacherHome } from './pages/teacher/TeacherHome'
 import { TeacherIntegrationsPage } from './pages/teacher/TeacherIntegrationsPage'
 import { TeacherGroupsPage } from './pages/teacher/TeacherGroupsPage'
+import { TeacherGradeProgressPage } from './pages/teacher/TeacherGradeProgressPage'
 import { TeacherValidationQueuePage } from './pages/teacher/TeacherValidationQueuePage'
 import { NgoHome } from './pages/ngo/NgoHome'
 
@@ -45,6 +47,7 @@ export default function App() {
             <Route path="teacher" element={<TeacherHome />} />
             <Route path="teacher/integraciones" element={<TeacherIntegrationsPage />} />
             <Route path="teacher/clases" element={<TeacherGroupsPage />} />
+            <Route path="teacher/progreso" element={<TeacherGradeProgressPage />} />
             <Route path="teacher/cola-validacion" element={<TeacherValidationQueuePage />} />
           </Route>
           <Route element={<RoleGate allow={['school_admin']} />}>
@@ -54,6 +57,7 @@ export default function App() {
             <Route path="admin/cola-aprobacion" element={<AdminApprovalQueuePage />} />
             <Route path="admin/bitacora-aprobacion" element={<AdminBitacoraAprobacionPage />} />
             <Route path="admin/diploma" element={<AdminDiplomaPage />} />
+            <Route path="admin/progreso" element={<AdminGradeProgressPage />} />
             <Route path="admin/attestaciones" element={<AdminAttestationsPage />} />
           </Route>
           <Route element={<RoleGate allow={['ngo_admin']} />}>
