@@ -4,7 +4,7 @@
  */
 export function solscanTxUrl(signature: string): string {
   const cluster = (import.meta.env.VITE_SOLANA_CLUSTER as string | undefined)?.trim()
-  const base = `https://solscan.io/tx/${encodeURIComponent(signature)}`
+  const base = `https://solscan.io/tx/${encodeURIComponent(signature)}?cluster=devnet`
   if (cluster && cluster !== 'mainnet-beta' && cluster !== 'mainnet') {
     return `${base}?cluster=${encodeURIComponent(cluster)}`
   }
@@ -13,7 +13,7 @@ export function solscanTxUrl(signature: string): string {
 
 export function solscanAddressUrl(address: string): string {
   const cluster = (import.meta.env.VITE_SOLANA_CLUSTER as string | undefined)?.trim()
-  const base = `https://solscan.io/token/${encodeURIComponent(address)}`
+  const base = `https://solscan.io/token/${encodeURIComponent(address)}?cluster=devnet`
   if (cluster && cluster !== 'mainnet-beta' && cluster !== 'mainnet') {
     return `${base}?cluster=${encodeURIComponent(cluster)}`
   }
