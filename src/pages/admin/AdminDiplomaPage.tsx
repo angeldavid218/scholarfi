@@ -155,7 +155,7 @@ export function AdminDiplomaPage() {
 
       <SectionCard
         title="Categorías de reconocimiento"
-        subtitle="Excelencia Académica se emite al #1 del ranking. Progreso Académico se encola por cron para estudiantes que mejoran calificaciones."
+        // subtitle="Excelencia Académica se emite al #1 del ranking. Progreso Académico se encola por cron para estudiantes que mejoran calificaciones."
       >
         <ul className="grid gap-2 sm:grid-cols-2">
           {DIPLOMA_CATEGORY_HINTS.map((item) => (

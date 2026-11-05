@@ -122,13 +122,13 @@ export function GradeProgressTable() {
 
       <SectionCard
         title="Progreso por estudiante"
-        subtitle="Comparación de la primera vs segunda mitad de calificaciones sincronizadas (normalizadas). Los estudiantes en Mejorando son elegibles para el NFT Progreso Académico vía cron."
+        subtitle="Comparación de la primera vs segunda mitad de calificaciones sincronizadas (normalizadas). Los estudiantes en Mejorando son elegibles para el NFT Progreso Académico."
       >
         {error ? <AlertBanner tone="error">{error}</AlertBanner> : null}
         {rows.length === 0 ? (
           <EmptyState
             title="Aún no hay análisis de progreso."
-            detail="Tras sincronizar Classroom, el cron grades:analyze-progress llena esta tabla."
+            
           />
         ) : (
           <div className="overflow-x-auto">
