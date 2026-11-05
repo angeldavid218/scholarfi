@@ -14,7 +14,10 @@ export const DIPLOMA_CATEGORY_HINTS: { key: DiplomaAchievementTypeKey; descripti
     key: 'excelencia_academica',
     description: 'Desempeño académico sobresaliente (MVP: estudiante #1 del ranking).',
   },
-  { key: 'progreso_academico', description: 'Mejora significativa de calificaciones.' },
+  {
+    key: 'progreso_academico',
+    description: 'Mejora significativa de calificaciones (cron: analyze → enqueue → mint-sweep).',
+  },
   { key: 'constancia_academica', description: 'Rendimiento consistente durante un período.' },
   { key: 'merito_academico', description: 'Cumplimiento destacado de objetivos académicos.' },
   { key: 'participacion_destacada', description: 'Compromiso con actividades o proyectos.' },

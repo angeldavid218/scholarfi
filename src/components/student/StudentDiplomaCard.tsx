@@ -38,11 +38,11 @@ function explorerHref(diploma: StudentDiploma): string | null {
 }
 
 /**
- * Shows the student's cNFT academic credential on the home achievements surface.
+ * Shows the student's confirmed cNFT academic credentials on the home achievements surface.
  */
 export function StudentDiplomaCard() {
   const { token, profile } = useAuth()
-  const [diploma, setDiploma] = useState<StudentDiploma | null>(null)
+  const [diplomas, setDiplomas] = useState<StudentDiploma[]>([])
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
@@ -50,10 +50,10 @@ export function StudentDiplomaCard() {
     setLoading(true)
     try {
       const res = await api.get<DiplomasResponse>('/diplomas/me', { token })
-      const confirmed = (res.diplomas ?? []).find((item) => item.status === 'confirmed') ?? null
-      setDiploma(confirmed)
+      const confirmed = (res.diplomas ?? []).filter((item) => item.status === 'confirmed')
+      setDiplomas(confirmed)
     } catch {
-      setDiploma(null)
+      setDiplomas([])
     } finally {
       setLoading(false)
     }
@@ -64,36 +64,42 @@ export function StudentDiplomaCard() {
     load()
   }, [load])
 
-  if (loading || !diploma) return null
+  if (loading || diplomas.length === 0) return null
 
-  const href = explorerHref(diploma)
-  const institutionName =
-    diploma.institutionName || profile?.institutionName || 'Tu institución educativa'
+  const institutionNameFallback = profile?.institutionName || 'Tu institución educativa'
 
   return (
-    <section className="space-y-3" aria-labelledby="student-diploma-heading">
+    <section className="space-y-6" aria-labelledby="student-diploma-heading">
       <h2 id="student-diploma-heading" className="sr-only">
-        Reconocimiento académico verificado
+        Reconocimientos académicos verificados
       </h2>
-      <DiplomaCertificatePreview
-        achievementType={diploma.achievementType}
-        studentName={diploma.displayName}
-        institutionName={institutionName}
-        academicPeriod={diploma.academicPeriod}
-        issueDate={diploma.issueDate}
-        recognitionId={diploma.recognitionId}
-      />
-      {href ? (
-        <a
-          href={href}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 text-sm font-medium text-primary underline-offset-2 hover:underline"
-        >
-          Ver credencial en Solscan
-          <HiArrowTopRightOnSquare className="h-4 w-4" aria-hidden />
-        </a>
-      ) : null}
+      {diplomas.map((diploma) => {
+        const href = explorerHref(diploma)
+        const institutionName = diploma.institutionName || institutionNameFallback
+        return (
+          <div key={diploma.id} className="space-y-3">
+            <DiplomaCertificatePreview
+              achievementType={diploma.achievementType}
+              studentName={diploma.displayName}
+              institutionName={institutionName}
+              academicPeriod={diploma.academicPeriod}
+              issueDate={diploma.issueDate}
+              recognitionId={diploma.recognitionId}
+            />
+            {href ? (
+              <a
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-sm font-medium text-primary underline-offset-2 hover:underline"
+              >
+                Ver {diploma.achievementLabel} en Solscan
+                <HiArrowTopRightOnSquare className="h-4 w-4" aria-hidden />
+              </a>
+            ) : null}
+          </div>
+        )
+      })}
     </section>
   )
 }
