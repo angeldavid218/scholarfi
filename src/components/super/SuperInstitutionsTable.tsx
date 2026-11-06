@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { HiArrowPath, HiBuildingOffice2 } from 'react-icons/hi2'
 import { INSTITUTION_CRYPTO_WALLETS_LABELS, INSTITUTION_STATUS_LABELS } from '../../i18n/es'
 import { formatId } from '../../i18n/format'
@@ -11,6 +12,7 @@ interface SuperInstitutionsTableProps {
   loading: boolean
   onRefresh: () => void
   onToggleWallets: (id: number, currentEnabled: boolean) => void
+  onSaveNftBaseImage: (id: number, url: string | null) => Promise<void> | void
 }
 
 export const SuperInstitutionsTable = ({
@@ -18,7 +20,29 @@ export const SuperInstitutionsTable = ({
   loading,
   onRefresh,
   onToggleWallets,
+  onSaveNftBaseImage,
 }: SuperInstitutionsTableProps) => {
+  const [draftUrls, setDraftUrls] = useState<Record<number, string>>({})
+  const [savingId, setSavingId] = useState<number | null>(null)
+
+  const draftFor = (institution: InstitutionRow) =>
+    draftUrls[institution.id] ?? institution.nftBaseImageUrl ?? ''
+
+  const saveUrl = async (institution: InstitutionRow) => {
+    const raw = draftFor(institution).trim()
+    setSavingId(institution.id)
+    try {
+      await onSaveNftBaseImage(institution.id, raw === '' ? null : raw)
+      setDraftUrls((prev) => {
+        const next = { ...prev }
+        delete next[institution.id]
+        return next
+      })
+    } finally {
+      setSavingId(null)
+    }
+  }
+
   return (
     <SectionCard
       title="Instituciones"
@@ -46,6 +70,7 @@ export const SuperInstitutionsTable = ({
               <th>Codigo</th>
               <th>Estado</th>
               <th>Wallets</th>
+              <th>NFT base image URL</th>
               <th></th>
             </tr>
           </thead>
@@ -66,6 +91,41 @@ export const SuperInstitutionsTable = ({
                       ? INSTITUTION_CRYPTO_WALLETS_LABELS.enabled
                       : INSTITUTION_CRYPTO_WALLETS_LABELS.disabled}
                   </StatusBadge>
+                </td>
+                <td className="min-w-64">
+                  <div className="flex flex-col gap-1">
+                    <input
+                      type="url"
+                      className="input input-bordered input-xs w-full"
+                      placeholder="https://…/school-brand.png"
+                      value={draftFor(institution)}
+                      onChange={(e) =>
+                        setDraftUrls((prev) => ({ ...prev, [institution.id]: e.target.value }))
+                      }
+                      aria-label={`NFT base image URL para ${institution.name}`}
+                    />
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        className="btn btn-xs btn-primary"
+                        disabled={savingId === institution.id}
+                        onClick={() => void saveUrl(institution)}
+                      >
+                        {savingId === institution.id ? 'Guardando…' : 'Guardar arte'}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-xs btn-ghost"
+                        disabled={savingId === institution.id || !institution.nftBaseImageUrl}
+                        onClick={() => {
+                          setDraftUrls((prev) => ({ ...prev, [institution.id]: '' }))
+                          void onSaveNftBaseImage(institution.id, null)
+                        }}
+                      >
+                        Limpiar
+                      </button>
+                    </div>
+                  </div>
                 </td>
                 <td>
                   <button

@@ -40,6 +40,7 @@ type PreviewBest = {
   academicPeriod: string
   achievementType: string
   achievementLabel: string
+  nftBaseImageUrl: string | null
   currentBest: {
     studentId: number
     displayName: string
@@ -218,6 +219,7 @@ export function AdminDiplomaPage() {
               academicPeriod={preview?.academicPeriod ?? ''}
               recognitionId={diploma?.recognitionId ?? undefined}
               issueDate={diploma?.issueDate ?? undefined}
+              baseImageUrl={preview?.nftBaseImageUrl}
             />
 
             <button type="button" className="btn btn-primary" disabled={!canMint} onClick={mint}>

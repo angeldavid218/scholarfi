@@ -4,6 +4,7 @@ export interface InstitutionRow {
   code: string
   status: 'draft' | 'active' | 'inactive'
   cryptoWalletsEnabled: boolean
+  nftBaseImageUrl: string | null
 }
 
 export interface InstitutionCreditPool {
