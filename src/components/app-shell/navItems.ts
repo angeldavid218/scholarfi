@@ -4,8 +4,6 @@ import {
   HiBanknotes,
   HiBuildingOffice2,
   HiChartBar,
-  HiCheckBadge,
-  HiClipboardDocumentCheck,
   HiClipboardDocumentList,
   HiDocumentText,
   HiGift,
@@ -47,10 +45,8 @@ export const buildPanelNavItems = (roles: string[], classroomDemoNav: boolean): 
           { to: '/admin', end: true, label: 'Admin escolar', Icon: HiBuildingOffice2 },
           { to: '/admin/presupuesto-docentes', label: 'Presupuesto docentes', Icon: HiBanknotes },
           { to: '/admin/recompensas-internas', label: 'Recompensas internas', Icon: HiGift },
-          { to: '/admin/cola-aprobacion', label: 'Cola de aprobacion', Icon: HiClipboardDocumentCheck },
           { to: '/admin/diploma', label: 'Reconocimiento académico', Icon: HiAcademicCap },
           { to: '/admin/progreso', label: 'Progreso', Icon: HiChartBar },
-          { to: '/admin/attestaciones', label: 'Attestaciones SAS', Icon: HiCheckBadge },
         ] as NavItem[])
       : []),
     ...(roles.includes('ngo_admin')

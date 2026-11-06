@@ -181,6 +181,26 @@ export const SuperHome = () => {
     }
   }
 
+  const saveNftBaseImage = async (id: number, url: string | null) => {
+    if (!token) return
+    setMsg(null)
+    try {
+      await api.patch(`/institutions/${id}/nft-base-image`, {
+        json: { nftBaseImageUrl: url },
+        token,
+      })
+      setMsg(
+        url
+          ? `Arte NFT base actualizado para institucion ${id}.`
+          : `Arte NFT base limpiado para institucion ${id} (plantilla ScholarFi).`
+      )
+      await refreshQuiet()
+    } catch (err) {
+      setMsg(mutationError(err))
+      throw err
+    }
+  }
+
   const bootstrapNgoAdmin = async (e: FormEvent) => {
     e.preventDefault()
     if (!token) return
@@ -301,6 +321,7 @@ export const SuperHome = () => {
         loading={loading}
         onRefresh={() => void reload(true)}
         onToggleWallets={(id, enabled) => void patchCryptoWallets(id, enabled)}
+        onSaveNftBaseImage={saveNftBaseImage}
       />
       <SuperNgosTable
         ngos={ngos}
