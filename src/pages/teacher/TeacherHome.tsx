@@ -99,7 +99,7 @@ export const TeacherHome = () => {
       <ExecutiveHero
         eyebrow="Panel docente"
         title="Mis tareas de Classroom"
-        subtitle="Importa actividades desde Google Classroom, sincroniza calificaciones y administra el portafolio de tareas de tu clase."
+        subtitle="Importa actividades y estudiantes desde Google Classroom y administra el portafolio de tareas de tu clase."
       />
       <KpiStrip
         items={[
@@ -117,17 +117,13 @@ export const TeacherHome = () => {
       />
 
       {error ? <AlertBanner tone="error">{error}</AlertBanner> : null}
-      {sync.busy ? (
+      {sync.syncingStudents ? (
         <AlertBanner tone="info">
           <span className="loading loading-spinner loading-sm" aria-hidden />
-          {sync.syncingStudents
-            ? 'Sincronizando estudiantes desde Google Classroom…'
-            : sync.syncingAll
-              ? 'Sincronizacion en segundo plano: procesando tareas de Google Classroom…'
-              : 'Sincronizacion en segundo plano: cargando calificaciones, revisando entregas y emitiendo recompensas…'}
+          Sincronizando estudiantes desde Google Classroom…
         </AlertBanner>
       ) : null}
-      {sync.actionMsg && !sync.busy ? (
+      {sync.actionMsg && !sync.syncingStudents ? (
         <AlertBanner tone={sync.actionMsgTone}>{sync.actionMsg}</AlertBanner>
       ) : null}
 
@@ -137,14 +133,10 @@ export const TeacherHome = () => {
         page={page}
         perPage={perPage}
         classroomDemo={classroomDemo}
-        busy={sync.busy}
-        syncingTaskId={sync.syncingTaskId}
-        syncingAll={sync.syncingAll}
+        busy={sync.syncingStudents}
         syncingStudents={sync.syncingStudents}
         onPageChange={onPageChange}
         onPerPageChange={onPerPageChange}
-        onSyncTask={(id) => void sync.syncClassroomTask(id)}
-        onSyncAll={() => void sync.syncAllClassroomTasks()}
         onSyncStudents={() => void sync.syncClassroomStudents()}
         onCloseTask={(id) => void closeTask(id)}
       />
