@@ -1,4 +1,4 @@
-import { HiArrowPath, HiClipboardDocumentList, HiLockClosed, HiUserGroup } from 'react-icons/hi2'
+import { HiClipboardDocumentList, HiLockClosed, HiUserGroup } from 'react-icons/hi2'
 import { Link } from 'react-router-dom'
 import { TASK_STATUS_LABELS } from '../../i18n/es'
 import { formatId } from '../../i18n/format'
@@ -41,9 +41,6 @@ const formatTaskDueLine = (dueAt: string | null): string | null => {
   return `Vence: ${formatted}`
 }
 
-const isSyncableClassroomTask = (task: TeacherTaskRow): boolean =>
-  task.externalSource === 'google_classroom' && task.status === 'active'
-
 interface TeacherTasksTableProps {
   tasks: TeacherTaskRow[]
   tasksMeta: PaginatedMeta | null
@@ -51,13 +48,9 @@ interface TeacherTasksTableProps {
   perPage: number
   classroomDemo: boolean
   busy: boolean
-  syncingTaskId: number | null
-  syncingAll: boolean
   syncingStudents: boolean
   onPageChange: (page: number) => void
   onPerPageChange: (perPage: number) => void
-  onSyncTask: (id: number) => void
-  onSyncAll: () => void
   onSyncStudents: () => void
   onCloseTask: (id: number) => void
 }
@@ -69,13 +62,9 @@ export const TeacherTasksTable = ({
   perPage,
   classroomDemo,
   busy,
-  syncingTaskId,
-  syncingAll,
   syncingStudents,
   onPageChange,
   onPerPageChange,
-  onSyncTask,
-  onSyncAll,
   onSyncStudents,
   onCloseTask,
 }: TeacherTasksTableProps) => {
@@ -101,16 +90,6 @@ export const TeacherTasksTable = ({
           >
             <HiUserGroup className="h-4 w-4" aria-hidden />
             Sincronizar estudiantes
-          </LoadingButton>
-          <LoadingButton
-            className="btn btn-outline btn-sm gap-1"
-            disabled={busy}
-            loading={syncingAll}
-            loadingLabel="Sincronizando…"
-            onClick={onSyncAll}
-          >
-            <HiArrowPath className="h-4 w-4" aria-hidden />
-            Sincronizar todo
           </LoadingButton>
         </div>
       }
@@ -159,23 +138,6 @@ export const TeacherTasksTable = ({
                       </StatusBadge>
                     </td>
                     <td className="flex flex-wrap gap-1">
-                      {isSyncableClassroomTask(t) ? (
-                        <LoadingButton
-                          className="btn btn-primary btn-sm gap-1"
-                          disabled={busy}
-                          loading={syncingTaskId === t.id}
-                          loadingLabel="Sincronizando…"
-                          onClick={() => onSyncTask(t.id)}
-                          title={
-                            t.syncMetadata?.minGrade != null
-                              ? `Nota minima: ${t.syncMetadata.minGrade}`
-                              : undefined
-                          }
-                        >
-                          <HiArrowPath className="h-4 w-4" aria-hidden />
-                          Sincronizar
-                        </LoadingButton>
-                      ) : null}
                       {t.status === 'active' ? (
                         <button
                           type="button"
